@@ -14,7 +14,7 @@ import pyutilib.th as unittest
 from pyomo.core.expr import current as EXPR
 from pyomo.environ import (
     ConcreteModel, RangeSet, Param, Var, Set, value, Constraint, 
-    sin, log, sqrt, TransformationFactory)
+    sin, log, sqrt, TransformationFactory, Expression, Block)
 from pyomo.dae import ContinuousSet, DerivativeVar
 from pyomo.dae.diffvar import DAE_Error
 from pyomo.dae.simulator import (
@@ -26,7 +26,7 @@ from pyomo.dae.simulator import (
     substitute_pyomo2casadi,
 )
 from pyomo.core.base.template_expr import (
-    IndexTemplate, 
+    IndexTemplate,
     _GetItemIndexer,
 )
 
@@ -488,23 +488,72 @@ class TestSimulator(unittest.TestCase):
         m.del_component('deqv_index')
         m.del_component('deqw_index')
 
+    # Testing Simulator construction on hierarchical models
+    @unittest.skipIf(not scipy_available, "Scipy is not available")
+    def test_sim_blocks(self):
+        m = self.m
+        m.b = Block()
+        m.b.w = Var(m.t)
+        m.b.dw = DerivativeVar(m.b.w)
+
+        t = IndexTemplate(m.t)
+
+        def _deq1(m, i):
+            return m.dv[i] == m.v[i]
+
+        m.deq1 = Constraint(m.t, rule=_deq1)
+
+        def _deq2(m, i):
+            return m.b.dw[i] == m.v[i]
+
+        m.deq2 = Constraint(m.t, rule=_deq2)
+
+        mysim = Simulator(m)
+
+        self.assertIs(mysim._contset, m.t)
+        self.assertEqual(len(mysim._diffvars), 2)
+        self.assertEqual(mysim._diffvars[0], _GetItemIndexer(m.v[t]))
+        self.assertEqual(mysim._diffvars[1], _GetItemIndexer(m.b.w[t]))
+        self.assertEqual(len(mysim._derivlist), 2)
+        self.assertEqual(mysim._derivlist[0], _GetItemIndexer(m.dv[t]))
+        self.assertEqual(mysim._derivlist[1], _GetItemIndexer(m.b.dw[t]))
+        self.assertEqual(len(mysim._templatemap), 1)
+        self.assertTrue(_GetItemIndexer(m.v[t]) in mysim._templatemap)
+        self.assertFalse(_GetItemIndexer(m.b.w[t]) in mysim._templatemap)
+        self.assertEqual(len(mysim._rhsdict), 2)
+        self.assertTrue(
+            isinstance(mysim._rhsdict[_GetItemIndexer(m.dv[t])], Param))
+        self.assertEqual(
+            mysim._rhsdict[_GetItemIndexer(m.dv[t])].name, 'v[{t}]')
+        self.assertTrue(
+            isinstance(mysim._rhsdict[_GetItemIndexer(m.b.dw[t])], Param))
+        self.assertEqual(
+            mysim._rhsdict[_GetItemIndexer(m.b.dw[t])].name, 'v[{t}]')
+        self.assertEqual(len(mysim._rhsfun(0, [0, 0])), 2)
+        self.assertIsNone(mysim._tsim)
+        self.assertIsNone(mysim._simsolution)
+        m.del_component('deq1')
+        m.del_component('deq2')
+        m.del_component('b')
+
     # Testing Simulator construction on differential variables with a
     # single index
     @unittest.skipIf(not scipy_available, "Scipy is not available")
     def test_sim_initialization_single_index(self):
-
         m = self.m
         m.w = Var(m.t)
         m.dw = DerivativeVar(m.w)
 
         t = IndexTemplate(m.t)
-        
+
         def _deq1(m, i):
             return m.dv[i] == m.v[i]
+
         m.deq1 = Constraint(m.t, rule=_deq1)
 
         def _deq2(m, i):
             return m.dw[i] == m.v[i]
+
         m.deq2 = Constraint(m.t, rule=_deq2)
 
         mysim = Simulator(m)
@@ -521,11 +570,13 @@ class TestSimulator(unittest.TestCase):
         self.assertFalse(_GetItemIndexer(m.w[t]) in mysim._templatemap)
         self.assertEqual(len(mysim._rhsdict), 2)
         self.assertTrue(
-            isinstance(mysim._rhsdict[_GetItemIndexer(m.dv[t])], Param))
+            isinstance(mysim._rhsdict[_GetItemIndexer(m.dv[t])],
+                       Param))
         self.assertEqual(
             mysim._rhsdict[_GetItemIndexer(m.dv[t])].name, 'v[{t}]')
         self.assertTrue(
-            isinstance(mysim._rhsdict[_GetItemIndexer(m.dw[t])], Param))
+            isinstance(mysim._rhsdict[_GetItemIndexer(m.dw[t])],
+                       Param))
         self.assertEqual(
             mysim._rhsdict[_GetItemIndexer(m.dw[t])].name, 'v[{t}]')
         self.assertEqual(len(mysim._rhsfun(0, [0, 0])), 2)
@@ -754,17 +805,29 @@ class TestSimulator(unittest.TestCase):
             Simulator(m)
         m.del_component('con1')
         m.del_component('con2')
-        
+
         # Can't simulate a model with multiple derivatives in an
         # equation
         m = self.m
 
         def _diffeq(m, t):
             return m.dv[t] == m.dv[t] + m.v[t]**2
+
         m.con1 = Constraint(m.t, rule=_diffeq)
         with self.assertRaises(DAE_Error):
             Simulator(m)
         m.del_component('con1')
+
+        # Can't simulate a model with Expression components
+        m = self.m
+
+        def _exp(m, t):
+            return m.dv[t] + m.v[t]**2
+        m.e = Expression(m.t, rule=_exp)
+
+        with self.assertRaises(DAE_Error):
+            Simulator(m)
+        m.del_component('e')
 
     # Testing the Simulator construction on un-supported models and
     # components with multiple indexing sets
@@ -903,10 +966,11 @@ class TestSimulator(unittest.TestCase):
             return m.dv2[t] == 10 + m.p
         m.con = Constraint(m.t, rule=_con)
 
-        mysim = Simulator(m,package='casadi')
+        mysim = Simulator(m, package='casadi')
         self.assertEqual(len(mysim._templatemap), 1)
         self.assertEqual(mysim._diffvars[0], _GetItemIndexer(m.v2[t]))
         m.del_component('con')
+
 
 class TestExpressionCheckers(unittest.TestCase):
     """
@@ -1003,7 +1067,7 @@ class TestExpressionCheckers(unittest.TestCase):
         self.assertIs(m.dv, temp[0]._base)
         self.assertIs(type(temp[1]), EXPR.ProductExpression)
         self.assertIs(e.arg(1), temp[1].arg(0).arg(0))
-        self.assertIs(m.z,        temp[1].arg(0).arg(1))
+        self.assertIs(m.z, temp[1].arg(0).arg(1))
 
         e = m.v[t] == m.y * m.dv[t] / m.z
         temp = _check_productexpression(e, 1)
@@ -1017,14 +1081,14 @@ class TestExpressionCheckers(unittest.TestCase):
         temp = _check_productexpression(e, 0)
         self.assertIs(m.dv, temp[0]._base)
         self.assertIs(type(temp[1]), EXPR.ProductExpression)
-        self.assertIs(m.y,        temp[1].arg(0))
+        self.assertIs(m.y, temp[1].arg(0))
         self.assertIs(e.arg(1), temp[1].arg(1).arg(0).arg(0))
 
         e = m.mp == m.y / (m.dv[t] * m.z)
         temp = _check_productexpression(e, 1)
         self.assertIs(m.dv, temp[0]._base)
         self.assertIs(type(temp[1]), EXPR.ProductExpression)
-        self.assertIs(m.y,        temp[1].arg(0))
+        self.assertIs(m.y, temp[1].arg(0))
         self.assertIs(e.arg(0), temp[1].arg(1).arg(0).arg(0))
         
         # Check expression with no DerivativeVar
@@ -1063,7 +1127,6 @@ class TestExpressionCheckers(unittest.TestCase):
         self.assertIsNone(temp)
         temp = _check_negationexpression(e, 1)
         self.assertIsNone(temp)
-
 
     # Testing the checker for SumExpressions
     def test_check_viewsumexpression(self):
@@ -1109,6 +1172,7 @@ class TestExpressionCheckers(unittest.TestCase):
         e = 2 + 5 * m.y - m.z == m.v[t]
         temp = _check_viewsumexpression(e, 0)
         self.assertIs(temp, None)
+
 
 @unittest.skipIf(not casadi_available, "Casadi is not available")
 class TestCasadiSubstituters(unittest.TestCase):

@@ -6,7 +6,7 @@
 #  the U.S. Government retains certain rights in this software.
 #  This software is distributed under the BSD License.
 #  _________________________________________________________________________
-from pyomo.core.base import Constraint, Param, value, Suffix, Block
+from pyomo.core.base import Constraint, Param, value, Suffix, Block, Expression
 
 from pyomo.dae import ContinuousSet, DerivativeVar
 from pyomo.dae.diffvar import DAE_Error
@@ -412,27 +412,26 @@ class Simulator:
                 raise ValueError("The casadi module is not available. "
                                   "Cannot simulate model.")
 
-        # Check for active Blocks and throw error if any are found
-        if len(list(m.component_data_objects(Block, active=True,
-                                             descend_into=False))):
-            raise DAE_Error("The Simulator cannot handle hierarchical models "
-                            "at the moment.")
+        # Check for Expression components and throw an error if any are found
+        if len(list(m.component_data_objects(Expression, descend_into=True))):
+            raise DAE_Error("The Simulator cannot handle models containing "
+                            "Expression components at the moment.")
 
-        temp = m.component_map(ContinuousSet)
+        temp = list(m.component_objects(ContinuousSet))
         if len(temp) != 1:
             raise DAE_Error(
                 "Currently the simulator may only be applied to "
                 "Pyomo models with a single ContinuousSet")
 
         # Get the ContinuousSet in the model
-        contset = list(temp.values())[0]
+        contset = temp[0]
 
         # Create a index template for the continuous set
         cstemplate = IndexTemplate(contset)
 
         # Ensure that there is at least one derivative in the model
-        derivs = m.component_map(DerivativeVar)
-        derivs = list(derivs.keys())
+        derivs = list(m.component_objects(DerivativeVar))
+        derivs = [d.name for d in derivs]
 
         if hasattr(m, '_pyomo_dae_reclassified_derivativevars'):
             for d in m._pyomo_dae_reclassified_derivativevars:
