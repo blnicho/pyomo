@@ -426,6 +426,7 @@ class Collocation_Discretization_Transformation(Transformation):
                 disc_info['adotdot'] = self._adotdot[currentds]
                 disc_info['afinal'] = self._afinal[currentds]
                 disc_info['scheme'] = self._scheme_name
+                ds._discretized = True
 
         expand_components(block)
 

@@ -62,6 +62,10 @@ class ContinuousSet(OrderedSimpleSet):
             This is a dictionary which contains information on the
             discretization transformation which has been applied to the
             :py:class:`ContinuousSet`.
+
+        _discretized : `boolean`
+            This is a flag indicating if this ContinuousSet has been
+            discretized or not
     """
 
     def __init__(self, *args, **kwds):
@@ -90,9 +94,14 @@ class ContinuousSet(OrderedSimpleSet):
         self._changed = False
         self.concrete = True
         self.virtual = False
+        self._discretized = False
         self._fe = []
         self._discretization_info = {}
         OrderedSimpleSet.__init__(self, **kwds)
+
+    def is_discretized(self):
+        """ Returns a flag indicating if this ContinuousSet is discretized"""
+        return self._discretized
 
     def get_finite_elements(self):
         """ Returns the finite element points

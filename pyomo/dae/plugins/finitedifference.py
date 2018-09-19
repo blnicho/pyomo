@@ -208,6 +208,7 @@ class Finite_Difference_Transformation(Transformation):
                 disc_info = ds.get_discretization_info()
                 disc_info['nfe'] = self._nfe[ds.name]
                 disc_info['scheme'] = self._scheme_name + ' Difference'
+                ds._discretized = True
 
         # Maybe check to see if any of the ContinuousSets have been changed,
         # if they haven't then the model components need not be updated
