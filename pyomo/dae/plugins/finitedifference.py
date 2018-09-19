@@ -232,11 +232,17 @@ class Finite_Difference_Transformation(Transformation):
                                                         loc)
                     d.set_derivative_expression(newexpr)
 
+                    # Add discretization equations for the current
+                    # ContinuousSet to the model
+                    # TODO: Verify this works for mixed partial derivatives
+                    add_discretization_equations(d.parent_block(), d)
+                    #del d._expr
+
             # Reclassify DerivativeVar if all indexing ContinuousSets have
             # been discretized. Add discretization equations to the
             # DerivativeVar's parent block.
             if d.is_fully_discretized():
-                add_discretization_equations(d.parent_block(), d)
+
                 d.parent_block().reclassify_component_type(d, Var)
 
                 # Keep track of any reclassified DerivativeVar components so

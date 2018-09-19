@@ -447,6 +447,12 @@ class Collocation_Discretization_Transformation(Transformation):
                     newexpr = create_partial_expression(scheme, oldexpr, i,
                                                         loc)
                     d.set_derivative_expression(newexpr)
+
+                    # Add discretization equations for the current
+                    # ContinuousSet to the model
+                    # TODO: Verify this works for mixed partial derivatives
+                    add_discretization_equations(d.parent_block(), d)
+
                     if self._scheme_name == 'LAGRANGE-LEGENDRE':
                         # Add continuity equations to DerivativeVar's parent
                         #  block
@@ -456,7 +462,6 @@ class Collocation_Discretization_Transformation(Transformation):
             # been discretized. Add discretization equations to the
             # DerivativeVar's parent block.
             if d.is_fully_discretized():
-                add_discretization_equations(d.parent_block(), d)
                 d.parent_block().reclassify_component_type(d, Var)
 
                 # Keep track of any reclassified DerivativeVar components so
