@@ -178,6 +178,7 @@ def expand_components(block):
         logger.error(buf.getvalue())
         raise
 
+
 def update_contset_indexed_component(comp, expansion_map):
     """
     Update any model components which are indexed by a ContinuousSet that
@@ -380,7 +381,7 @@ def create_access_function(var):
 def create_partial_expression(scheme, expr, ind, loc):
     """
     This method returns a function which applies a discretization scheme
-    to an expression along a particular indexind set. This is admittedly a
+    to an expression along a particular indexing set. This is admittedly a
     convoluted looking implementation. The idea is that we only apply a
     discretization scheme to one indexing set at a time but we also want
     the function to be expanded over any other indexing sets.
