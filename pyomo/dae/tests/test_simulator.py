@@ -498,25 +498,24 @@ class TestSimulator(unittest.TestCase):
 
         t = IndexTemplate(m.t)
 
-        def _deq1(m, i):
+        def _deq1(b, i):
+            m = b.model()
             return m.dv[i] == m.v[i]
-
-        m.deq1 = Constraint(m.t, rule=_deq1)
+        m.b.deq1 = Constraint(m.t, rule=_deq1)
 
         def _deq2(m, i):
             return m.b.dw[i] == m.v[i]
-
         m.deq2 = Constraint(m.t, rule=_deq2)
 
         mysim = Simulator(m)
 
         self.assertIs(mysim._contset, m.t)
         self.assertEqual(len(mysim._diffvars), 2)
-        self.assertEqual(mysim._diffvars[0], _GetItemIndexer(m.v[t]))
-        self.assertEqual(mysim._diffvars[1], _GetItemIndexer(m.b.w[t]))
+        self.assertEqual(mysim._diffvars[0], _GetItemIndexer(m.b.w[t]))
+        self.assertEqual(mysim._diffvars[1], _GetItemIndexer(m.v[t]))
         self.assertEqual(len(mysim._derivlist), 2)
-        self.assertEqual(mysim._derivlist[0], _GetItemIndexer(m.dv[t]))
-        self.assertEqual(mysim._derivlist[1], _GetItemIndexer(m.b.dw[t]))
+        self.assertEqual(mysim._derivlist[0], _GetItemIndexer(m.b.dw[t]))
+        self.assertEqual(mysim._derivlist[1], _GetItemIndexer(m.dv[t]))
         self.assertEqual(len(mysim._templatemap), 1)
         self.assertTrue(_GetItemIndexer(m.v[t]) in mysim._templatemap)
         self.assertFalse(_GetItemIndexer(m.b.w[t]) in mysim._templatemap)
