@@ -109,8 +109,10 @@ def _backward_transform_order2(v, s):
     return _bwd_fun
 
 
-@TransformationFactory.register('dae.finite_difference', doc="Discretizes a DAE model using "
-          "a finite difference method transforming the model into an NLP.")
+@TransformationFactory.register(
+    'dae.finite_difference',
+    doc="Discretizes a DAE model using a finite difference method "
+        "transforming the model into an NLP.")
 class Finite_Difference_Transformation(Transformation):
     """
     Transformation that applies finite difference methods to
@@ -237,11 +239,9 @@ class Finite_Difference_Transformation(Transformation):
                     # ContinuousSet to the model
                     # TODO: Verify this works for mixed partial derivatives
                     add_discretization_equations(d.parent_block(), d)
-                    #del d._expr
 
             # Reclassify DerivativeVar if all indexing ContinuousSets have
-            # been discretized. Add discretization equations to the
-            # DerivativeVar's parent block.
+            # been discretized.
             if d.is_fully_discretized():
 
                 d.parent_block().reclassify_component_type(d, Var)

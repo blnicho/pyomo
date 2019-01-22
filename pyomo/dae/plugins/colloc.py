@@ -110,7 +110,7 @@ def _lagrange_legendre_transform_order2(v, s):
         low = s.get_lower_element_boundary(i)
         lowidx = tmp.index(low)
         return sum(v(tmp[lowidx + j]) * adotdot[j][idx - lowidx] *
-                   (1.0 / (tmp[lowidx + ncp + 1] - tmp[lowidx]) ** 2) \
+                   (1.0 / (tmp[lowidx + ncp + 1] - tmp[lowidx]) ** 2)
                    for j in range(ncp + 1))
     return _fun
 
@@ -235,10 +235,10 @@ def calc_afinal(cp):
     return afinal
 
 
-@TransformationFactory.register('dae.collocation', 
-            doc="Discretizes a DAE model using "
-            "orthogonal collocation over finite elements transforming "
-            "the model into an NLP.")
+@TransformationFactory.register(
+    'dae.collocation',
+    doc="Discretizes a DAE model using orthogonal collocation over "
+        "finite elements transforming the model into an NLP.")
 class Collocation_Discretization_Transformation(Transformation):
 
     def __init__(self):
@@ -456,12 +456,11 @@ class Collocation_Discretization_Transformation(Transformation):
 
                     if self._scheme_name == 'LAGRANGE-LEGENDRE':
                         # Add continuity equations to DerivativeVar's parent
-                        #  block
+                        # block
                         add_continuity_equations(d.parent_block(), d, i, loc)
 
             # Reclassify DerivativeVar if all indexing ContinuousSets have
-            # been discretized. Add discretization equations to the
-            # DerivativeVar's parent block.
+            # been discretized.
             if d.is_fully_discretized():
                 d.parent_block().reclassify_component_type(d, Var)
 
