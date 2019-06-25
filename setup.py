@@ -36,10 +36,28 @@ def _find_packages(path):
 
 
 def read(*rnames):
-    return open(os.path.join(os.path.dirname(__file__), *rnames)).read()
+    with open(os.path.join(os.path.dirname(__file__), *rnames)) as README:
+        # Strip all leading badges up to, but not including the COIN-OR
+        # badge so that they do not appear in the PyPI description
+        while True:
+            line = README.readline()
+            if 'COIN-OR' in line:
+                break
+            if line.strip() and '[![' not in line:
+                break
+        return line + README.read()
+
+def get_version():
+    # Source pyomo/version/info.py to get the version number
+    _verInfo = dict(globals())
+    _verFile = os.path.join(os.path.dirname(__file__),
+                            'pyomo','version','info.py')
+    with open(_verFile) as _FILE:
+        exec(_FILE.read(), _verInfo)
+    return _verInfo['__version__']
 
 requires = [
-    'PyUtilib>=5.6.6.dev0',
+    'PyUtilib>=5.7.2.dev0',
     'appdirs',
     'ply',
     'six>=1.4',
@@ -78,8 +96,10 @@ if using_cython:
         #
         import shutil
         files = [
-            "pyomo/core/expr/expr_pyomo5.pyx",
             "pyomo/core/expr/numvalue.pyx",
+            "pyomo/core/expr/numeric_expr.pyx",
+            "pyomo/core/expr/logical_expr.pyx",
+            #"pyomo/core/expr/visitor.pyx",
             "pyomo/core/util.pyx",
             "pyomo/repn/standard_repn.pyx",
             "pyomo/repn/plugins/cpxlp.pyx",
@@ -89,7 +109,8 @@ if using_cython:
         ]
         for f in files:
             shutil.copyfile(f[:-1], f)
-        ext_modules = cythonize(files)
+        ext_modules = cythonize(files, compiler_directives={
+            "language_level": 3 if sys.version_info >= (3, ) else 2})
     except:
         if using_cython == CYTHON_REQUIRED:
             print("""
@@ -104,22 +125,17 @@ packages = _find_packages('pyomo')
 def run_setup():
    setup(name='Pyomo',
       #
-      # Note: trunk should have *next* major.minor
-      #     VOTD and Final releases will have major.minor.revnum
+      # Note: the release number is set in pyomo/version/info.py
       #
-      # When cutting a release, ALSO update _major/_minor/_revnum in
-      #
-      #     pyomo/pyomo/version/__init__.py
-      #     pyomo/RELEASE.txt
-      #
-      version='5.6.2.dev0',
+      version=get_version(),
       maintainer='William E. Hart',
       maintainer_email='wehart@sandia.gov',
       url='http://pyomo.org',
       license='BSD',
       platforms=["any"],
       description='Pyomo: Python Optimization Modeling Objects',
-      long_description=read('README.txt'),
+      long_description=read('README.md'),
+      long_description_content_type='text/markdown',
       classifiers=[
         'Development Status :: 5 - Production/Stable',
         'Intended Audience :: End Users/Desktop',
@@ -143,6 +159,7 @@ def run_setup():
         'Topic :: Scientific/Engineering :: Mathematics',
         'Topic :: Software Development :: Libraries :: Python Modules' ],
       packages=packages,
+      package_data={"pyomo.contrib.viewer":["*.ui"]},
       keywords=['optimization'],
       install_requires=requires,
       ext_modules = ext_modules,
@@ -160,7 +177,7 @@ def run_setup():
         results_schema=pyomo.scripting.commands:results_schema
         pyro_mip_server = pyomo.scripting.pyro_mip_server:main
         test.pyomo = pyomo.scripting.runtests:runPyomoTests
-        pyomo = pyomo.scripting.pyomo_main:main
+        pyomo = pyomo.scripting.pyomo_main:main_console_script
         pyomo_ns = pyomo.scripting.commands:pyomo_ns
         pyomo_nsc = pyomo.scripting.commands:pyomo_nsc
         kill_pyro_mip_servers = pyomo.scripting.commands:kill_pyro_mip_servers
@@ -169,7 +186,6 @@ def run_setup():
         OSSolverService = pyomo.scripting.commands:OSSolverService
         pyomo_python = pyomo.scripting.commands:pyomo_python
         pyomo_old=pyomo.scripting.pyomo_command:main
-        get_pyomo_extras = scripts.get_pyomo_extras:main
 
         [pyomo.command]
         pyomo.runbenders=pyomo.pysp.benders
@@ -184,6 +200,7 @@ def run_setup():
         pyomo.test.pyomo = pyomo.scripting.runtests
         pyomo.pyro_mip_server = pyomo.scripting.pyro_mip_server
         pyomo.results_schema=pyomo.scripting.commands
+        pyomo.viewer=pyomo.contrib.viewer.pyomo_viewer
       """
       )
 
@@ -194,7 +211,7 @@ except SystemExit as e_info:
     # environment is missing / has an incorrect Microsoft compiler.
     # Since Cython is not strictly required, we will disable Cython and
     # try re-running setup(), but only for this very specific situation.
-    if 'Microsoft Visual C++' not in e_info.message:
+    if 'Microsoft Visual C++' not in str(e_info):
         raise
     elif using_cython == CYTHON_REQUIRED:
         print("""
