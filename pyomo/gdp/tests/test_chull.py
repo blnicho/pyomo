@@ -158,10 +158,10 @@ class TwoTermDisj(unittest.TestCase):
         self.assertEqual(
             str(cons.body),
             "(%s*d[0].indicator_var + %s)*("
-            "_pyomo_gdp_chull_relaxation.relaxedDisjuncts[0].x*"
-            "(1/(%s*d[0].indicator_var + %s)) + "
-            "(_pyomo_gdp_chull_relaxation.relaxedDisjuncts[0].y*"
-            "(1/(%s*d[0].indicator_var + %s)))**2) - "
+            "_pyomo_gdp_chull_relaxation.relaxedDisjuncts[0].x"
+            "/(%s*d[0].indicator_var + %s) + "
+            "(_pyomo_gdp_chull_relaxation.relaxedDisjuncts[0].y/"
+            "(%s*d[0].indicator_var + %s))**2) - "
             "%s*(0.0 + 0.0**2)*(1 - d[0].indicator_var) "
             "- 14.0*d[0].indicator_var"
             % (EPS_1, EPS, EPS_1, EPS, EPS_1, EPS, EPS))
@@ -763,6 +763,13 @@ class TestSpecialCases(unittest.TestCase):
         i.d2.z = 2
         self.assertEqual(rd.z_bounds['lb'].body(), -11)
         self.assertEqual(rd.z_bounds['ub'].body(), 9)
+
+
+class RangeSetOnDisjunct(unittest.TestCase):
+    def test_RangeSet(self):
+        m = models.makeDisjunctWithRangeSet()
+        TransformationFactory('gdp.chull').apply_to(m)
+        self.assertIsInstance(m.d1.s, RangeSet)
 
 
 # TODO (based on coverage):

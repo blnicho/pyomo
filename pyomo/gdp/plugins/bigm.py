@@ -15,8 +15,8 @@ import textwrap
 
 from pyomo.core import (
     Block, Connector, Constraint, Param, Set, Suffix, Var,
-    Expression, SortComponents, TraversalStrategy, Any, value
-)
+    Expression, SortComponents, TraversalStrategy, Any, value,
+    RangeSet)
 from pyomo.core.base import Transformation, TransformationFactory
 from pyomo.core.base.component import ComponentUID, ActiveComponent
 from pyomo.core.kernel.component_map import ComponentMap
@@ -31,6 +31,7 @@ from six import iterkeys, iteritems
 
 logger = logging.getLogger('pyomo.gdp.bigm')
 
+NAME_BUFFER = {}
 
 def _to_dict(val):
     if val is None:
@@ -129,6 +130,7 @@ class BigM_Transformation(Transformation):
             Suffix:      False,
             Param:       False,
             Set:         False,
+            RangeSet:    False,
             Disjunction: self._warn_for_active_disjunction,
             Disjunct:    self._warn_for_active_disjunct,
             Block:       self._transform_block_on_disjunct,
@@ -146,7 +148,17 @@ class BigM_Transformation(Transformation):
             block = block.parent_block()
         return suffix_list
 
+
     def _apply_to(self, instance, **kwds):
+        assert not NAME_BUFFER
+        try:
+            self._apply_to_impl(instance, **kwds)
+        finally:
+            # Clear the global name buffer now that we are done
+            NAME_BUFFER.clear()
+
+
+    def _apply_to_impl(self, instance, **kwds):
         config = self.CONFIG(kwds.pop('options', {}))
 
         # We will let args override suffixes and estimate as a last
@@ -298,8 +310,9 @@ class BigM_Transformation(Transformation):
         # can no longer make that distinction in the name.
         #    nm = '_xor' if xor else '_or'
         nm = '_xor'
-        orCname = unique_component_name(parent, '_gdp_bigm_relaxation_' +
-                                        disjunction.name + nm)
+        orCname = unique_component_name(
+            parent, '_gdp_bigm_relaxation_' + disjunction.getname(
+                fully_qualified=True, name_buffer=NAME_BUFFER) + nm)
         parent.add_component(orCname, orC)
         orConstraintMap[disjunction] = orC
         return orC
@@ -453,13 +466,15 @@ class BigM_Transformation(Transformation):
                 return
         parentblock = problemdisj.parent_block()
         # the disjunction should only have been active if it wasn't transformed
+        _probDisjName = problemdisj.getname(
+            fully_qualified=True, name_buffer=NAME_BUFFER)
         assert (not hasattr(parentblock, "_gdp_transformation_info")) or \
-            problemdisj.name not in parentblock._gdp_transformation_info
+            _probDisjName not in parentblock._gdp_transformation_info
         raise GDP_Error("Found untransformed disjunction %s in disjunct %s! "
                         "The disjunction must be transformed before the "
                         "disjunct. If you are using targets, put the "
                         "disjunction before the disjunct in the list."
-                        % (problemdisj.name, disjunct.name))
+                        % (_probDisjName, disjunct.name))
 
     def _warn_for_active_disjunct(self, innerdisjunct, outerdisjunct,
                                   infodict, bigMargs, suffix_list):
@@ -506,7 +521,8 @@ class BigM_Transformation(Transformation):
         # Though rare, it is possible to get naming conflicts here
         # since constraints from all blocks are getting moved onto the
         # same block. So we get a unique name
-        name = unique_component_name(relaxationBlock, obj.name)
+        name = unique_component_name(relaxationBlock, obj.getname(
+            fully_qualified=True, name_buffer=NAME_BUFFER))
 
         if obj.is_indexed():
             try:
@@ -538,8 +554,10 @@ class BigM_Transformation(Transformation):
             M = self._get_M_from_args(c, bigMargs)
 
             if __debug__ and logger.isEnabledFor(logging.DEBUG):
+                _name = obj.getname(
+                    fully_qualified=True, name_buffer=NAME_BUFFER)
                 logger.debug("GDP(BigM): The value for M for constraint %s "
-                             "from the BigM argument is %s." % (obj.name,
+                             "from the BigM argument is %s." % (_name,
                                                                 str(M)))
 
             # if we didn't get something from args, try suffixes:
@@ -547,8 +565,10 @@ class BigM_Transformation(Transformation):
                 M = self._get_M_from_suffixes(c, suffix_list)
 
             if __debug__ and logger.isEnabledFor(logging.DEBUG):
+                _name = obj.getname(
+                    fully_qualified=True, name_buffer=NAME_BUFFER)
                 logger.debug("GDP(BigM): The value for M for constraint %s "
-                             "after checking suffixes is %s." % (obj.name,
+                             "after checking suffixes is %s." % (_name,
                                                                  str(M)))
 
             if not isinstance(M, (tuple, list)):
@@ -575,9 +595,11 @@ class BigM_Transformation(Transformation):
                 M = (M[0], self._estimate_M(c.body, name)[1] - c.upper)
 
             if __debug__ and logger.isEnabledFor(logging.DEBUG):
+                _name = obj.getname(
+                    fully_qualified=True, name_buffer=NAME_BUFFER)
                 logger.debug("GDP(BigM): The value for M for constraint %s "
                              "after estimating (if needed) is %s." %
-                             (obj.name, str(M)))
+                             (_name, str(M)))
 
             # Handle indices for both SimpleConstraint and IndexedConstraint
             if i.__class__ is tuple:
