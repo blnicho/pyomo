@@ -19,6 +19,7 @@ from six import iteritems, StringIO, iterkeys
 from six.moves import xrange
 from pyutilib.math import isclose
 
+from pyomo.common.collections import OrderedSet
 from pyomo.opt import ProblemFormat
 from pyomo.opt.base import AbstractProblemWriter, WriterFactory
 from pyomo.core.expr.numvalue import (
@@ -29,8 +30,8 @@ from pyomo.core.base import (SortComponents,
                              SymbolMap,
                              ShortNameLabeler,
                              NumericLabeler,
-                             BooleanSet, Constraint,
-                             IntegerSet, Objective,
+                             Constraint,
+                             Objective,
                              Var, Param)
 from pyomo.core.base.component import ActiveComponent
 from pyomo.core.base.set_types import *
@@ -41,51 +42,9 @@ import pyomo.core.base.suffix
 import pyomo.core.kernel.suffix
 from pyomo.core.kernel.block import IBlock
 from pyomo.repn.util import valid_expr_ctypes_minlp, \
-    valid_active_ctypes_minlp
+    valid_active_ctypes_minlp, ftoa
 
 logger = logging.getLogger('pyomo.core')
-
-
-#Copied from cpxlp.py:
-# Keven Hunter made a nice point about using %.16g in his attachment
-# to ticket #4319. I am adjusting this to %.17g as this mocks the
-# behavior of using %r (i.e., float('%r'%<number>) == <number>) with
-# the added benefit of outputting (+/-). The only case where this
-# fails to mock the behavior of %r is for large (long) integers (L),
-# which is a rare case to run into and is probably indicative of
-# other issues with the model.
-# *** NOTE ***: If you use 'r' or 's' here, it will break code that
-#               relies on using '%+' before the formatting character
-#               and you will need to go add extra logic to output
-#               the number's sign.
-_ftoa_precision_str = '%.17g'
-
-def _ftoa(val):
-    if val is None:
-        return val
-    if type(val) not in native_numeric_types:
-        if is_fixed(val):
-            val = value(val)
-        else:
-            raise ValueError("non-fixed bound or weight: " + str(exp))
-
-    a = _ftoa_precision_str % val
-    i = len(a)
-    while i > 1:
-        try:
-            if float(a[:i-1]) == val:
-                i -= 1
-            else:
-                break
-        except:
-            break
-    if i == len(a):
-        logger.warning(
-            "converting %s to string resulted in loss of precision" % val)
-    #if a.startswith('1.57'):
-    #    raise RuntimeError("wtf %s %s, %s" % ( val, a, i))
-    return a[:i]
-
 
 #
 # A visitor pattern that creates a string for an expression
@@ -130,7 +89,7 @@ class ToBaronVisitor(EXPR.ExpressionValueVisitor):
                     tmp.append(val)
 
         if node.__class__ in EXPR.NPV_expression_types:
-            return _ftoa(value(node))
+            return ftoa(value(node))
 
         if node.__class__ is EXPR.LinearExpression:
             for v in node.linear_vars:
@@ -180,19 +139,14 @@ class ToBaronVisitor(EXPR.ExpressionValueVisitor):
             return True, None
 
         if node.__class__ in native_types:
-            return True, _ftoa(node)
+            return True, ftoa(node)
 
         if node.is_expression_type():
             # we will descend into this, so type checking will happen later
-            if node.is_component_type():
-                self.treechecker(node)
             return False, None
 
         if node.is_component_type():
-            if isinstance(node, ICategorizedObject):
-                _ctype = node.ctype
-            else:
-                _ctype = node.type()
+            _ctype = node.ctype
             if _ctype not in valid_expr_ctypes_minlp:
                 # Make sure all components in active constraints
                 # are basic ctypes we know how to deal with.
@@ -204,13 +158,13 @@ class ToBaronVisitor(EXPR.ExpressionValueVisitor):
 
         if node.is_variable_type():
             if node.fixed:
-                return True, _ftoa(value(node))
+                return True, ftoa(value(node))
             else:
                 self.variables.add(id(node))
                 label = self.smap.getSymbol(node)
                 return True, label
 
-        return True, _ftoa(value(node))
+        return True, ftoa(value(node))
 
 
 def expression_to_string(expr, variables, labeler=None, smap=None):
@@ -249,7 +203,7 @@ class ProblemWriter_bar(AbstractProblemWriter):
                                  skip_trivial_constraints,
                                  sorter):
 
-        referenced_variable_ids = set()
+        referenced_variable_ids = OrderedSet()
 
         def _skip_trivial(constraint_data):
             if skip_trivial_constraints:
@@ -443,7 +397,7 @@ class ProblemWriter_bar(AbstractProblemWriter):
                     else:
                         assert var_data.value is not None
                         vstring_to_bar_dict[variable_string] = \
-                            _ftoa(var_data.value)
+                            ftoa(var_data.value)
 
                 for param_data in mutable_param_gen(block):
                     param_stream = StringIO()
@@ -451,7 +405,7 @@ class ProblemWriter_bar(AbstractProblemWriter):
                     param_string = param_stream.getvalue()
 
                     param_string = ' '+param_string+' '
-                    pstring_to_bar_dict[param_string] = _ftoa(param_data())
+                    pstring_to_bar_dict[param_string] = ftoa(param_data())
 
         # Equation Definition
         output_file.write('c_e_FIX_ONE_VAR_CONST__:  ONE_VAR_CONST__  == 1;\n');
@@ -460,7 +414,7 @@ class ProblemWriter_bar(AbstractProblemWriter):
                                                c_eqns,
                                                l_eqns):
 
-            variables = set()
+            variables = OrderedSet()
             #print(symbol_map.byObject.keys())
             eqn_body = expression_to_string(constraint_data.body, variables, smap=symbol_map)
             #print(symbol_map.byObject.keys())
@@ -489,24 +443,24 @@ class ProblemWriter_bar(AbstractProblemWriter):
             # Equality constraint
             if constraint_data.equality:
                 eqn_lhs = ''
-                eqn_rhs = ' == ' + _ftoa(constraint_data.upper)
+                eqn_rhs = ' == ' + ftoa(constraint_data.upper)
 
             # Greater than constraint
             elif not constraint_data.has_ub():
-                eqn_rhs = ' >= ' + _ftoa(constraint_data.lower)
+                eqn_rhs = ' >= ' + ftoa(constraint_data.lower)
                 eqn_lhs = ''
 
             # Less than constraint
             elif not constraint_data.has_lb():
-                eqn_rhs = ' <= ' + _ftoa(constraint_data.upper)
+                eqn_rhs = ' <= ' + ftoa(constraint_data.upper)
                 eqn_lhs = ''
 
             # Double-sided constraint
             elif constraint_data.has_lb() and \
                  constraint_data.has_ub():
-                eqn_lhs = _ftoa(constraint_data.lower) + \
+                eqn_lhs = ftoa(constraint_data.lower) + \
                           ' <= '
-                eqn_rhs = ' <= ' + _ftoa(constraint_data.upper)
+                eqn_rhs = ' <= ' + ftoa(constraint_data.upper)
 
             eqn_string = eqn_lhs + eqn_body + eqn_rhs + ';\n'
             output_file.write(eqn_string)
@@ -541,7 +495,7 @@ class ProblemWriter_bar(AbstractProblemWriter):
                 else:
                     output_file.write("maximize ")
 
-                variables = set()
+                variables = OrderedSet()
                 #print(symbol_map.byObject.keys())
                 obj_string = expression_to_string(objective_data.expr, variables, smap=symbol_map)
                 #print(symbol_map.byObject.keys())
@@ -766,13 +720,13 @@ class ProblemWriter_bar(AbstractProblemWriter):
 
             if var_data.fixed:
                 if output_fixed_variable_bounds:
-                    var_data_lb = _ftoa(var_data.value)
+                    var_data_lb = ftoa(var_data.value)
                 else:
                     var_data_lb = None
             else:
                 var_data_lb = None
                 if var_data.has_lb():
-                    var_data_lb = _ftoa(var_data.lb)
+                    var_data_lb = ftoa(var_data.lb)
 
             if var_data_lb is not None:
                 name_to_output = symbol_map.getSymbol(var_data)
@@ -796,13 +750,13 @@ class ProblemWriter_bar(AbstractProblemWriter):
 
             if var_data.fixed:
                 if output_fixed_variable_bounds:
-                    var_data_ub = _ftoa(var_data.value)
+                    var_data_ub = ftoa(var_data.value)
                 else:
                     var_data_ub = None
             else:
                 var_data_ub = None
                 if var_data.has_ub():
-                    var_data_ub = _ftoa(var_data.ub)
+                    var_data_ub = ftoa(var_data.ub)
 
             if var_data_ub is not None:
                 name_to_output = symbol_map.getSymbol(var_data)
@@ -855,7 +809,7 @@ class ProblemWriter_bar(AbstractProblemWriter):
             if starting_point is not None:
                 var_name = symbol_map.getSymbol(var_data)
                 tmp[var_name] = "%s: %s;\n" % (
-                    var_name, _ftoa(starting_point))
+                    var_name, ftoa(starting_point))
 
         output_file.write("".join( tmp[key] for key in sorted(tmp.keys()) ))
         output_file.write('}\n\n')

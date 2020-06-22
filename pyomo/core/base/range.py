@@ -8,11 +8,15 @@
 #  This software is distributed under the 3-clause BSD License.
 #  ___________________________________________________________________________
 
-import collections
 import math
 
-from six import iteritems
+from six import iteritems, PY3
 from six.moves import xrange
+
+if PY3:
+    from collections.abc import Sequence as collections_Sequence
+else:
+    from collections import Sequence as collections_Sequence
 
 try:
     from math import remainder
@@ -22,6 +26,8 @@ except ImportError:
         if ans > abs(b/2.):
             ans -= b
         return ans
+
+_inf = float('inf')
 
 class RangeDifferenceError(ValueError): pass
 
@@ -65,6 +71,10 @@ class NumericRange(object):
             raise ValueError(
                 "NumericRange step must be int (got %s)" % (step,))
         step = int(step)
+        if start == -_inf:
+            start = None
+        if end == _inf:
+            end = None
         if start is None:
             if step:
                 raise ValueError("NumericRange: start must not be None "
@@ -893,7 +903,7 @@ class RangeProduct(object):
         return not self.__eq__(other)
 
     def __contains__(self, value):
-        if not isinstance(value, collections.Sequence):
+        if not isinstance(value, collections_Sequence):
             return False
         if len(value) != len(self.range_lists):
             return False
