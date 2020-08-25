@@ -641,6 +641,79 @@ class _GetItemIndexer(object):
             self._base.name, ','.join(str(x) for x in self._args) )
 
 
+class _GetAttrIndexer(object):
+
+    def __init__(self, expr):
+        # TODO: Check number of arguments, this assumes there are exactly
+        # 2 arguments at each level
+        self._args = []
+        _hash = []
+        current_e = expr
+        while type(current_e.arg(0)) in [GetItemExpression, GetAttrExpression]:
+            for x in current_e.args[1:]:
+                val = value(current_e.arg(1))
+                self._args.append(val)
+                _hash.append(val)
+            current_e = current_e.arg(0)
+
+        # Loop from _GetItemIndexer
+        for x in current_e.args[1:]:
+            try:
+                logging.disable(logging.CRITICAL)
+                val = value(x)
+                self._args.append(val)
+                _hash.append(val)
+            except TemplateExpressionError as e:
+                if x is not e.template:
+                    raise TypeError(
+                        "Cannot use the param substituter with expression "
+                        "templates\nwhere the component index has the "
+                        "IndexTemplate in an expression.\n\tFound in %s"
+                        % ( expr, ))
+                self._args.append(e.template)
+                _hash.append(id(e.template._set))
+            finally:
+                logging.disable(logging.NOTSET)
+
+        self._base = current_e.arg(0)
+        _hash.append(id(self._base))
+
+        # Reverse the lists so that in the simplest case the behavior
+        # will match _GetItemIndexer
+        # self._args.reverse()
+        # _hash.reverse()
+
+        self._hash = tuple(_hash)
+
+    def nargs(self):
+        return len(self._args)
+
+    def arg(self, i):
+        return self._args[i]
+
+    @property
+    def base(self):
+        return self._base
+
+    @property
+    def args(self):
+        return self._args
+
+    def __hash__(self):
+        return hash(self._hash)
+
+    def __eq__(self, other):
+        if type(other) is _GetAttrIndexer:
+            return self._hash == other._hash
+        else:
+            return False
+
+    def __str__(self):
+        # TODO
+        return "%s[%s]" % (
+            self._base.name, ','.join(str(x) for x in self._args) )
+
+
 def substitute_getitem_with_param(expr, _map):
     """A simple substituter to replace _GetItem nodes with mutable Params.
 
@@ -653,6 +726,27 @@ def substitute_getitem_with_param(expr, _map):
         return expr
 
     _id = _GetItemIndexer(expr)
+    if _id not in _map:
+        _map[_id] = pyomo.core.base.param.Param(mutable=True)
+        _map[_id].construct()
+        _map[_id]._name = "%s[%s]" % (
+            _id.base.name, ','.join(str(x) for x in _id.args) )
+    return _map[_id]
+
+def substitute_getattr_with_param(expr, _map):
+    """A simple substituter to replace _GetItem or _GetAttr nodes with
+    mutable Params.
+
+    This substituter will replace all _GetItemExpression and
+    _GetAttrExpression nodes with a new Param.  For example, this method
+    will create expressions suitable for passing to DAE integrators
+
+    """
+    import pyomo.core.base.param
+    if type(expr) is IndexTemplate:
+        return expr
+
+    _id = _GetAttrIndexer(expr)
     if _id not in _map:
         _map[_id] = pyomo.core.base.param.Param(mutable=True)
         _map[_id].construct()

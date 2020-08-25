@@ -10,12 +10,16 @@ from pyomo.core.base import Constraint, Param, Var, value, Suffix, Block
 
 from pyomo.dae import ContinuousSet, DerivativeVar
 from pyomo.dae.diffvar import DAE_Error
+from pyomo.dae.flatten import flatten_dae_components
 
 from pyomo.core.expr import current as EXPR
 from pyomo.core.expr.numvalue import (
     NumericValue, native_numeric_types, nonpyomo_leaf_types,
 )
-from pyomo.core.expr.template_expr import IndexTemplate, _GetItemIndexer
+from pyomo.core.expr.template_expr import (
+    IndexTemplate, substitute_getattr_with_param, _GetAttrIndexer, ExpressionTemplateContext,
+    templatize_constraint
+)
 from pyomo.core.base.indexed_component_slice import IndexedComponent_slice
 from pyomo.core.base.reference import Reference
 
@@ -223,14 +227,9 @@ class Pyomo2Scipy_Visitor(EXPR.ExpressionReplacementVisitor):
         if type(node) is IndexTemplate:
             return True, node
 
-        if type(node) is EXPR.GetItemExpression:
-            _id = _GetItemIndexer(node)
-            if _id not in self.templatemap:
-                self.templatemap[_id] = Param(mutable=True)
-                self.templatemap[_id].construct()
-                self.templatemap[_id]._name = "%s[%s]" % (
-                    _id.base.name, ','.join(str(x) for x in _id.args))
-            return True, self.templatemap[_id]
+        if type(node) in [EXPR.GetItemExpression, EXPR.GetAttrExpression]:
+            ret = substitute_getattr_with_param(node, self.templatemap)
+            return True, ret
 
         return super(
             Pyomo2Scipy_Visitor, self).visiting_potential_leaf(node)
@@ -281,9 +280,9 @@ class Substitute_Pyomo2Casadi_Visitor(EXPR.ExpressionReplacementVisitor):
         return node
 
     def visiting_potential_leaf(self, node):
-        """Replace a node if it's a _GetItemExpression."""
-        if type(node) is EXPR.GetItemExpression:
-            _id = _GetItemIndexer(node)
+        """Replace a node if it's a GetItemExpression or GetAttrExpression."""
+        if type(node) in [EXPR.GetItemExpression, EXPR.GetAttrExpression] :
+            _id = _GetAttrIndexer(node)
             if _id not in self.templatemap:
                 name = "%s[%s]" % (
                     _id.base.name, ','.join(str(x) for x in _id.args))
@@ -411,6 +410,7 @@ class Simulator:
                     "You may build the Simulator object but you will not "
                     "be able to run the simulation.")
             elif is_pypy:
+                # scipy is importable into PyPy, but ODE integrators don't work as of Feb. 2018
                 logger.warning(
                     "The scipy ODE integrators do not work in pypy. "
                     "You may build the Simulator object but you will not "
@@ -424,26 +424,26 @@ class Simulator:
                                   "Cannot simulate model.")
 
         # Check for active Blocks and throw error if any are found
-        if len(list(m.component_data_objects(Block, active=True,
-                                             descend_into=False))):
-            raise DAE_Error("The Simulator cannot handle hierarchical models "
-                            "at the moment.")
+        # if len(list(m.component_data_objects(Block, active=True,
+        #                                      descend_into=False))):
+        #     raise DAE_Error("The Simulator cannot handle hierarchical models "
+        #                     "at the moment.")
 
-        temp = m.component_map(ContinuousSet)
+        temp = list(m.component_objects(ContinuousSet))
         if len(temp) != 1:
             raise DAE_Error(
                 "Currently the simulator may only be applied to "
                 "Pyomo models with a single ContinuousSet")
 
         # Get the ContinuousSet in the model
-        contset = list(temp.values())[0]
+        contset = temp[0]
 
         # Create a index template for the continuous set
         cstemplate = IndexTemplate(contset)
 
         # Ensure that there is at least one derivative in the model
-        derivs = m.component_map(DerivativeVar)
-        derivs = list(derivs.keys())
+        derivs = list(m.component_objects(DerivativeVar))
+        derivs = [d.name for d in derivs]
 
         if hasattr(m, '_pyomo_dae_reclassified_derivativevars'):
             for d in m._pyomo_dae_reclassified_derivativevars:
@@ -459,152 +459,117 @@ class Simulator:
         # Loop over constraints to find differential equations with separable
         # RHS. Must find a RHS for every derivative var otherwise ERROR. Build
         # dictionary of DerivativeVar:RHS equation.
-        for con in m.component_objects(Constraint, active=True):
+        
+        # Identify all of the contset-indexed constraints
+        no_t_con, has_t_con = flatten_dae_components(m, contset, Constraint)
+        context = ExpressionTemplateContext()
+
+        # TODO: if no_t_con is not empty maybe raise a warning that
+        # these constraints will be ignored
+
+        for con in has_t_con:
 
             # Skip the discretization equations if model is discretized
+            # FIXME: I don't think this will ever be hit, I don't think the 
+            # discretization equations will be identified as indexed by the contset
             if '_disc_eq' in con.name:
                 continue
-
-            # Check dimension of the Constraint. Check if the
-            # Constraint is indexed by the continuous set and
-            # determine its order in the indexing sets
-            if con.dim() == 0:
+            
+            tempexp = templatize_constraint(con, cstemplate, context)
+            tempexp = tempexp[0]
+                
+            # Check to make sure it's an EqualityExpression
+            if not type(tempexp) is EXPR.EqualityExpression:
+                # TODO: maybe throw a warning that inequality constraints will be ignored
                 continue
 
-            conindex = con.index_set()
-            # if not hasattr(conindex, 'set_tuple'):
-            #     # Check if the continuous set is the indexing set
-            #     if conindex is not contset:
-            #         continue
-            #     else:
-            #         csidx = 0
-            #         noncsidx = (None,)
-            # else:
-            dimsum = 0
-            csidx = -1
-            noncsidx = None
-            for s in conindex.subsets():
-                if s is contset:
-                    if csidx != -1:
-                        raise DAE_Error(
-                            "Cannot simulate the constraint %s because "
-                            "it is indexed by duplicate ContinuousSets"
-                            % con.name)
-                    csidx = dimsum
-                elif noncsidx is None:
-                    noncsidx = s
-                else:
-                    noncsidx = noncsidx.cross(s)
-                dimsum += s.dimen
-            if csidx == -1:
-                continue
-            if noncsidx is None:
-                noncsidx = (None,)
+            # Check to make sure it's a differential equation with
+            # separable RHS
+            args = None
+            # Case 1: m.dxdt[t] = RHS
+            if type(tempexp.arg(0)) is EXPR.GetItemExpression:
+                args = _check_getitemexpression(tempexp, 0)
 
-            # Get the rule used to construct the constraint
-            conrule = con.rule
+            # Case 2: RHS = m.dxdt[t]
+            if args is None:
+                if type(tempexp.arg(1)) is EXPR.GetItemExpression:
+                    args = _check_getitemexpression(tempexp, 1)
 
-            for i in noncsidx:
-                # Insert the index template and call the rule to
-                # create a templated expression
-                if i is None:
-                    tempexp = conrule(m, cstemplate)
-                else:
-                    if not isinstance(i, tuple):
-                        i = (i,)
-                    tempidx = i[0:csidx] + (cstemplate,) + i[csidx:]
-                    tempexp = conrule(m, tempidx)
+            # Case 3: m.p*m.dxdt[t] = RHS
+            if args is None:
+                if type(tempexp.arg(0)) is EXPR.ProductExpression or \
+                   type(tempexp.arg(0)) is EXPR.ReciprocalExpression or \
+                   type(tempexp.arg(0)) is EXPR.DivisionExpression:
+                    args = _check_productexpression(tempexp, 0)
 
-                # Check to make sure it's an EqualityExpression
-                if not type(tempexp) is EXPR.EqualityExpression:
-                    continue
+            # Case 4: RHS =  m.p*m.dxdt[t]
+            if args is None:
+                if type(tempexp.arg(1)) is EXPR.ProductExpression or \
+                   type(tempexp.arg(1)) is EXPR.ReciprocalExpression or \
+                   type(tempexp.arg(1)) is EXPR.DivisionExpression:
+                    args = _check_productexpression(tempexp, 1)
 
-                # Check to make sure it's a differential equation with
-                # separable RHS
-                args = None
-                # Case 1: m.dxdt[t] = RHS
-                if type(tempexp.arg(0)) is EXPR.GetItemExpression:
-                    args = _check_getitemexpression(tempexp, 0)
+            # Case 5: m.dxdt[t] + sum(ELSE) = RHS
+            # or CONSTANT + m.dxdt[t] = RHS
+            if args is None:
+                if type(tempexp.arg(0)) is EXPR.SumExpression:
+                    args = _check_viewsumexpression(tempexp, 0)
 
-                # Case 2: RHS = m.dxdt[t]
-                if args is None:
-                    if type(tempexp.arg(1)) is EXPR.GetItemExpression:
-                        args = _check_getitemexpression(tempexp, 1)
+            # Case 6: RHS = m.dxdt[t] + sum(ELSE)
+            if args is None:
+                if type(tempexp.arg(1)) is EXPR.SumExpression:
+                    args = _check_viewsumexpression(tempexp, 1)
 
-                # Case 3: m.p*m.dxdt[t] = RHS
-                if args is None:
-                    if type(tempexp.arg(0)) is EXPR.ProductExpression or \
-                       type(tempexp.arg(0)) is EXPR.ReciprocalExpression or \
-                       type(tempexp.arg(0)) is EXPR.DivisionExpression:
-                        args = _check_productexpression(tempexp, 0)
+            # Case 7: RHS = m.p*m.dxdt[t] + CONSTANT
+            # This case will be caught by Case 6 if p is immutable. If
+            # p is mutable then this case will not be detected as a
+            # separable differential equation
 
-                # Case 4: RHS =  m.p*m.dxdt[t]
-                if args is None:
-                    if type(tempexp.arg(1)) is EXPR.ProductExpression or \
-                       type(tempexp.arg(1)) is EXPR.ReciprocalExpression or \
-                       type(tempexp.arg(1)) is EXPR.DivisionExpression:
-                        args = _check_productexpression(tempexp, 1)
+            # Case 8: - dxdt[t] = RHS
+            if args is None:
+                if type(tempexp.arg(0)) is EXPR.NegationExpression:
+                    args = _check_negationexpression(tempexp, 0)
 
-                # Case 5: m.dxdt[t] + sum(ELSE) = RHS
-                # or CONSTANT + m.dxdt[t] = RHS
-                if args is None:
-                    if type(tempexp.arg(0)) is EXPR.SumExpression:
-                        args = _check_viewsumexpression(tempexp, 0)
+            # Case 9: RHS = - dxdt[t]
+            if args is None:
+                if type(tempexp.arg(1)) is EXPR.NegationExpression:
+                    args = _check_negationexpression(tempexp, 1)
 
-                # Case 6: RHS = m.dxdt[t] + sum(ELSE)
-                if args is None:
-                    if type(tempexp.arg(1)) is EXPR.SumExpression:
-                        args = _check_viewsumexpression(tempexp, 1)
-
-                # Case 7: RHS = m.p*m.dxdt[t] + CONSTANT
-                # This case will be caught by Case 6 if p is immutable. If
-                # p is mutable then this case will not be detected as a
-                # separable differential equation
-
-                # Case 8: - dxdt[t] = RHS
-                if args is None:
-                    if type(tempexp.arg(0)) is EXPR.NegationExpression:
-                        args = _check_negationexpression(tempexp, 0)
-
-                # Case 9: RHS = - dxdt[t]
-                if args is None:
-                    if type(tempexp.arg(1)) is EXPR.NegationExpression:
-                        args = _check_negationexpression(tempexp, 1)
-
-                # At this point if args is not None then args[0] contains
-                # the _GetItemExpression for the DerivativeVar and args[1]
-                # contains the RHS expression. If args is None then the
-                # constraint is considered an algebraic equation
-                if args is None:
-                    # Constraint is an algebraic equation or unsupported
-                    # differential equation
-                    if self._intpackage == 'scipy':
-                        raise DAE_Error(
-                            "Model contains an algebraic equation or "
-                            "unrecognized differential equation. Constraint "
-                            "'%s' cannot be simulated using Scipy. If you are "
-                            "trying to simulate a DAE model you must use "
-                            "CasADi as the integration package."
-                            % str(con.name))
-                    tempexp = tempexp.arg(0) - tempexp.arg(1)
-                    algexp = substitute_pyomo2casadi(tempexp, templatemap)
-                    alglist.append(algexp)
-                    continue
-
-                # Add the differential equation to rhsdict and derivlist
-                dv = args[0]
-                RHS = args[1]
-                dvkey = _GetItemIndexer(dv)
-                if dvkey in rhsdict.keys():
+            # At this point if args is not None then args[0] contains
+            # the _GetItemExpression for the DerivativeVar and args[1]
+            # contains the RHS expression. If args is None then the
+            # constraint is considered an algebraic equation
+            if args is None:
+                # Constraint is an algebraic equation or unsupported
+                # differential equation
+                if self._intpackage == 'scipy':
                     raise DAE_Error(
-                        "Found multiple RHS expressions for the "
-                        "DerivativeVar %s" % str(dvkey))
+                        "Model contains an algebraic equation or "
+                        "unrecognized differential equation. Constraint "
+                        "'%s' cannot be simulated using Scipy. If you are "
+                        "trying to simulate a DAE model you must use "
+                        "CasADi as the integration package."
+                        % str(con.name))
+                tempexp = tempexp.arg(0) - tempexp.arg(1)
+                algexp = substitute_pyomo2casadi(tempexp, templatemap)
+                alglist.append(algexp)
+                continue
 
-                derivlist.append(dvkey)
-                if self._intpackage == 'casadi':
-                    rhsdict[dvkey] = substitute_pyomo2casadi(RHS, templatemap)
-                else:
-                    rhsdict[dvkey] = convert_pyomo2scipy(RHS, templatemap)
+            # Add the differential equation to rhsdict and derivlist
+            dv = args[0]
+            RHS = args[1]
+            dvkey = _GetAttrIndexer(dv)
+            if dvkey in rhsdict.keys():
+                raise DAE_Error(
+                    "Found multiple RHS expressions for the "
+                    "DerivativeVar %s" % str(dvkey))
+
+            derivlist.append(dvkey)
+            if self._intpackage == 'casadi':
+                rhsdict[dvkey] = substitute_pyomo2casadi(RHS, templatemap)
+            else:
+                rhsdict[dvkey] = convert_pyomo2scipy(RHS, templatemap)
+
         # Check to see if we found a RHS for every DerivativeVar in
         # the model
         # FIXME: Not sure how to rework this for multi-index case
@@ -620,7 +585,7 @@ class Simulator:
 
         for deriv in derivlist:
             sv = deriv.base.get_state_var()
-            diffvars.append(_GetItemIndexer(sv[deriv._args]))
+            diffvars.append(_GetAttrIndexer(sv[deriv._args]))
 
         # Create ordered list of algebraic variables and time-varying
         # parameters
@@ -1048,6 +1013,8 @@ class Simulator:
         This function will initialize the model using the profile obtained
         from simulating the dynamic model.
         """
+        # FIXME: Need to figure out how to use _GetAttrIndexer to find
+        # the original component on the model
         if self._tsim is None:
             raise DAE_Error(
                 "Tried to initialize the model without simulating it first")
