@@ -679,11 +679,6 @@ class _GetAttrIndexer(object):
         self._base = current_e.arg(0)
         _hash.append(id(self._base))
 
-        # Reverse the lists so that in the simplest case the behavior
-        # will match _GetItemIndexer
-        # self._args.reverse()
-        # _hash.reverse()
-
         self._hash = tuple(_hash)
 
     def nargs(self):
@@ -714,9 +709,8 @@ class _GetAttrIndexer(object):
             return False
 
     def __str__(self):
-        # TODO
-        return "%s[%s]" % (
-            self._base.name, ','.join(str(x) for x in self._args) )
+
+        return str(self._expr)
 
 
 def substitute_getitem_with_param(expr, _map):
