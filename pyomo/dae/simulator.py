@@ -18,7 +18,7 @@ from pyomo.core.expr.numvalue import (
 )
 from pyomo.core.expr.template_expr import (
     IndexTemplate, substitute_getattr_with_param, _GetAttrIndexer, ExpressionTemplateContext,
-    templatize_constraint
+    templatize_constraint, resolve_template
 )
 from pyomo.core.base.indexed_component_slice import IndexedComponent_slice
 from pyomo.core.base.reference import Reference
@@ -1013,25 +1013,21 @@ class Simulator:
         This function will initialize the model using the profile obtained
         from simulating the dynamic model.
         """
-        # FIXME: Need to figure out how to use _GetAttrIndexer to find
-        # the original component on the model
         if self._tsim is None:
             raise DAE_Error(
                 "Tried to initialize the model without simulating it first")
 
         tvals = list(self._contset)
+        cstemplate = self._cstemplate
 
         # Build list of state and algebraic variables
         # that can be initialized
         initvars = self._diffvars + self._simalgvars
 
         for idx, v in enumerate(initvars):
-            for idx2, i in enumerate(v._args):
-                    if type(i) is IndexTemplate:
-                        break
             valinit = np.interp(tvals, self._tsim,
                                 self._simsolution[:, idx])
             for i, t in enumerate(tvals):
-                vidx = tuple(v._args[0:idx2]) + (t,) + \
-                       tuple(v._args[idx2 + 1:])
-                v._base[vidx] = valinit[i]
+                cstemplate.set_value(t)
+                vv = resolve_template(v.expr)
+                vv.set_value(float(valinit[i]))

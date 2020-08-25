@@ -644,8 +644,9 @@ class _GetItemIndexer(object):
 class _GetAttrIndexer(object):
 
     def __init__(self, expr):
-        # TODO: Check number of arguments, this assumes there are exactly
-        # 2 arguments at each level
+        # store the original expr to make it easy to resolve the template later
+        self._expr = expr  
+
         self._args = []
         _hash = []
         current_e = expr
@@ -690,6 +691,10 @@ class _GetAttrIndexer(object):
 
     def arg(self, i):
         return self._args[i]
+
+    @property
+    def expr(self):
+        return self._expr
 
     @property
     def base(self):
