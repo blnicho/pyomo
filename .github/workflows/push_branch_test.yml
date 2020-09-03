@@ -425,6 +425,13 @@ jobs:
       run: |
         make -C doc/OnlineDocs doctest -d
 
+    - name: Run book tests
+      run: |
+        nosetests -v --with-xunit --xunit-file=TEST-pyomo-book.xml \
+            --eval-attr="book and (not fragile)" \
+            pyomo `pwd`/examples/doc/pyomobook
+
+
     - name: Process code coverage report
       env:
         CODECOV_NAME: ${{matrix.TARGET}}/${{matrix.python}}${{matrix.NAME}}
