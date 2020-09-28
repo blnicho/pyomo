@@ -285,7 +285,7 @@ def _update_expression(expre):
     This method will construct any additional indices in an expression
     resulting from the discretization of a ContinuousSet.
     """
-    _rule = expre._init_rule
+    _rule = expre.rule
     _parent = expre._parent()
     for i in expre.index_set():
         if i not in expre:

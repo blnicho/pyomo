@@ -272,7 +272,7 @@ class Expression(IndexedComponent):
             return IndexedExpression.__new__(IndexedExpression)
 
     def __init__(self, *args, **kwds):
-        self._init_rule = kwds.pop('rule', None)
+        self.rule = kwds.pop('rule', None)
         self._init_expr = kwds.pop('initialize', None)
         self._init_expr = kwds.pop('expr', self._init_expr)
         if is_functor(self._init_expr) and \
@@ -282,7 +282,7 @@ class Expression(IndexedComponent):
                 "expression can not be used to initialize "
                 "an Expression object. Use 'rule' to initalize "
                 "with function types.")
-        if (self._init_rule is not None) and \
+        if (self.rule is not None) and \
            (self._init_expr is not None):
             raise ValueError(
                 "Both a rule and an expression can not be "
@@ -370,7 +370,7 @@ class Expression(IndexedComponent):
         self._constructed = True
 
         _init_expr = self._init_expr
-        _init_rule = self._init_rule
+        _init_rule = self.rule
         #
         # We no longer need these
         #
