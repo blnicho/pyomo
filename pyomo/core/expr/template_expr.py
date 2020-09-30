@@ -928,7 +928,7 @@ def templatize_constraint(constraint, indices=None, context=None):
         raise RuntimeError("Cannot templatize a constraint with no rule")
     # This *should* be a Reference.  We may need to create temporary
     # objects in order to validate that the reference can be templatized
-    # and ge tthe underlying constraint rule
+    # and get the underlying constraint rule
     conData = constraint._data.__getitem__(
         indices, context.component_template_map
     )
