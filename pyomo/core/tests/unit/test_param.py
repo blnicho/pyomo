@@ -22,12 +22,18 @@ import math
 import os
 import sys
 
-import pyutilib.services
 import pyutilib.th as unittest
 
-from pyomo.environ import *
+from pyomo.environ import (Set, RangeSet, Param, ConcreteModel,
+                           AbstractModel, Constraint, Var,
+                           NonNegativeIntegers, Integers,
+                           NonNegativeReals, Boolean, Reals, Any, display,
+                           value, set_options, sin, cos, tan, log, log10,
+                           exp, sqrt, ceil, floor, asin, acos, atan, sinh,
+                           cosh, tanh, asinh, acosh, atanh)
 from pyomo.common.log import LoggingIntercept
-from pyomo.core.base.param import _NotValid
+from pyomo.common.tempfiles import TempfileManager
+from pyomo.core.base.param import _NotValid, _ParamData 
 
 from six import iteritems, itervalues, StringIO
 
@@ -141,7 +147,7 @@ class ParamTester(object):
         self.assertEqual(self.instance.A[idx], self.data[idx])
         if self.instance.A.mutable:
             self.assertTrue( isinstance( self.instance.A[idx],
-                                         pyomo.core.base.param._ParamData ) )
+                                         _ParamData ) )
         else:
             self.assertEqual(type(self.instance.A[idx]), float)
 
@@ -152,7 +158,7 @@ class ParamTester(object):
                           % (idx,))
             self.assertEqual( self.instance.A[idx], 4.3)
             self.assertTrue( isinstance(self.instance.A[idx],
-                                        pyomo.core.base.param._ParamData ) )
+                                        _ParamData ) )
         except TypeError:
             # immutable Params should raise a TypeError exception
             if self.instance.A.mutable:
@@ -215,7 +221,7 @@ class ParamTester(object):
                           self.instance.A._default_val )
         if self.instance.A.mutable:
             self.assertIsInstance( self.instance.A[idx],
-                                   pyomo.core.base.param._ParamData )
+                                   _ParamData )
         else:
             self.assertEqual(type(self.instance.A[idx]),
                              type(value(self.instance.A._default_val)))
@@ -227,7 +233,7 @@ class ParamTester(object):
                           % (idx,))
             self.assertEqual( self.instance.A[idx], 4.3)
             self.assertIsInstance( self.instance.A[idx],
-                                   pyomo.core.base.param._ParamData )
+                                   _ParamData )
         except TypeError:
             # immutable Params should raise a TypeError exception
             if self.instance.A.mutable:
@@ -1465,7 +1471,7 @@ class MiscNonIndexedParamBehaviorTests(unittest.TestCase):
 
     # Test that display actually displays the correct param value
     def test_mutable_display(self):
-        tmp_stream = pyutilib.services.TempfileManager.create_tempfile(suffix = '.param_display.test')
+        tmp_stream = TempfileManager.create_tempfile(suffix = '.param_display.test')
         model = ConcreteModel()
         model.Q = Param(initialize=0.0, mutable=True)
         self.assertEqual(model.Q, 0.0)
@@ -1634,7 +1640,7 @@ class MiscIndexedParamBehaviorTests(unittest.TestCase):
 
     # Test that display actually displays the correct param value
     def test_mutable_display(self):
-        tmp_stream = pyutilib.services.TempfileManager.create_tempfile(suffix = '.param_display.test')
+        tmp_stream = TempfileManager.create_tempfile(suffix = '.param_display.test')
         model = ConcreteModel()
         model.P = Param([1,2],default=0.0, mutable=True)
         model.Q = Param([1,2],initialize=0.0, mutable=True)
@@ -1697,7 +1703,7 @@ class MiscIndexedParamBehaviorTests(unittest.TestCase):
 
     # Test that pprint actually displays the correct param value
     def test_mutable_pprint(self):
-        tmp_stream = pyutilib.services.TempfileManager.create_tempfile(suffix = '.param_display.test')
+        tmp_stream = TempfileManager.create_tempfile(suffix = '.param_display.test')
         model = ConcreteModel()
         model.P = Param([1,2],default=0.0, mutable=True)
         model.Q = Param([1,2],initialize=0.0, mutable=True)

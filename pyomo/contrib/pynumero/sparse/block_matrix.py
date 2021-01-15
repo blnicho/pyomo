@@ -21,17 +21,13 @@ where m_{i,j} are sparse matrices
 
 """
 
-from scipy.sparse.sputils import upcast, isscalarlike, get_index_dtype
+from scipy.sparse.sputils import get_index_dtype
 from pyomo.contrib.pynumero.sparse.block_vector import BlockVector
 from scipy.sparse import coo_matrix, csr_matrix, csc_matrix
 from scipy.sparse import isspmatrix
-from pyomo.contrib.pynumero.sparse.utils import is_symmetric_sparse
 from .base_block import BaseBlockMatrix
-from scipy.sparse.base import spmatrix
 import operator
 import numpy as np
-import six
-import abc
 import logging
 import warnings
 
@@ -92,14 +88,8 @@ class BlockMatrix(BaseBlockMatrix):
 
         shape = (nbrows, nbcols)
 
-        blocks = []
-        for i in range(shape[0]):
-            blocks.append([None for j in range(shape[1])])
-
-        self._blocks = np.asarray(blocks, dtype='object')
-
+        self._blocks = np.empty(shape, dtype='object')
         self._bshape = shape
-
         self._block_mask = np.zeros(shape, dtype=bool)
 
         # _brow_lengths and _bcol_lengths get converted to dtype=np.int64 as soon as
@@ -535,16 +525,12 @@ class BlockMatrix(BaseBlockMatrix):
 
         m, n = self.bshape
         mat = BlockMatrix(n, m)
-        for row in range(m):
-            if self.is_row_size_defined(row):
-                mat.set_col_size(row, self.get_row_size(row))
-        for col in range(n):
-            if self.is_col_size_defined(col):
-                mat.set_row_size(col, self.get_col_size(col))
-        for i in range(m):
-            for j in range(n):
-                if not self.is_empty_block(i, j):
-                    mat.set_block(j, i, self.get_block(i, j).transpose(copy=True))
+        mat._brow_lengths = self._bcol_lengths.copy()
+        mat._bcol_lengths = self._brow_lengths.copy()
+        mat._undefined_brows = set(self._undefined_bcols)
+        mat._undefined_bcols = set(self._undefined_brows)
+        for i, j in zip(*np.nonzero(self._block_mask)):
+            mat.set_block(j, i, self.get_block(i, j).transpose(copy=True))
         return mat
 
     def is_empty_block(self, idx, jdx):
@@ -732,6 +718,10 @@ class BlockMatrix(BaseBlockMatrix):
 
         """
         result = BlockMatrix(self.bshape[0], self.bshape[1])
+        result._brow_lengths = self._brow_lengths.copy()
+        result._bcol_lengths = self._bcol_lengths.copy()
+        result._undefined_brows = set(self._undefined_brows)
+        result._undefined_bcols = set(self._undefined_bcols)
         ii, jj = np.nonzero(self._block_mask)
         if deep:
             for i, j in zip(ii, jj):

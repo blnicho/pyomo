@@ -6,24 +6,19 @@
 #  the U.S. Government retains certain rights in this software.
 #  This software is distributed under the BSD License.
 #  _________________________________________________________________________
-from pyomo.core.base import Constraint, Param, Var, value, Suffix, Block
+from pyomo.core.base import Constraint, Param, value, Suffix, Block
 
 from pyomo.dae import ContinuousSet, DerivativeVar
 from pyomo.dae.diffvar import DAE_Error
 from pyomo.dae.flatten import flatten_dae_components
 
 from pyomo.core.expr import current as EXPR
-from pyomo.core.expr.numvalue import (
-    NumericValue, native_numeric_types, nonpyomo_leaf_types,
-)
+from pyomo.core.expr.numvalue import native_numeric_types
 from pyomo.core.expr.template_expr import (
     IndexTemplate, substitute_getattr_with_param, _GetAttrIndexer, ExpressionTemplateContext,
-    templatize_constraint, resolve_template
-)
-from pyomo.core.base.indexed_component_slice import IndexedComponent_slice
-from pyomo.core.base.reference import Reference
+    templatize_constraint, resolve_template)
 
-from six import iterkeys, itervalues
+from six import iterkeys
 
 import logging
 
