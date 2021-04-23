@@ -232,13 +232,9 @@ def filter_file_contents(lines):
 
             # A few substitutions to get tests passing on pypy3
             if ".inf" in i:
-                i.replace(".inf", "inf")
-                filtered.append(i)
-                continue
+                i = i.replace(".inf", "inf")
             if "null" in i:
-                i.replace("null", "None")
-                filtered.append(i)
-                continue
+                i = i.replace("null", "None")
 
             try:
                 filtered.append(float(i))
