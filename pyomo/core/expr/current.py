@@ -116,7 +116,7 @@ if _mode == Mode.pyomo5_trees:
                                                substitute_getitem_with_param,
                                                substitute_template_with_value,
                                                _set_iterator_template_generator,
-                                               _template_iter_context,
+                                               ExpressionTemplateContext,
                                                templatize_rule,
                                                templatize_constraint)
     from pyomo.core.expr import visitor as _visitor

@@ -18,12 +18,11 @@ from pyomo.common.dependencies import (
     numpy, numpy_available, pandas, pandas_available,
 )
 from pyomo.core.pyomoobject import PyomoObject
+from pyomo.core.base.misc import IndexedComponent_ArgListTypes
 
-gtom
 
 initializer_map = {}
 sequence_types = set()
-
 #
 # The following set of "Initializer" classes are a general functionality
 # and should be promoted to their own module so that we can use them on
@@ -235,8 +234,6 @@ class DataFrameInitializer(InitializerBase):
     def indices(self):
         return self._df.index
 
-
-IndexedComponent_ArgListTypes = {tuple, HashableTuple}
 
 class IndexedCallInitializer(InitializerBase):
     """Initializer for functions and callable objects"""

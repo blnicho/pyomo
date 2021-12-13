@@ -379,7 +379,7 @@ class IndexTemplate(NumericValue):
 
     id_: int
         If not None, the identifier for the IndexTemplate (used, e.g.,
-        for constring the string representation of the IndexTemplate
+        for constructing the string representation of the IndexTemplate)
     """
 
     __slots__ = ('_set', '_value', '_index', '_id', '_lock')

@@ -14,18 +14,20 @@ import logging
 import sys
 import types
 
+from pyomo.common.collections import HashableTuple
 from pyomo.common.deprecation import relocated_module_attribute
 from pyomo.core.expr import native_numeric_types
 
 logger = logging.getLogger('pyomo.core')
 
-from .util import IndexedComponent_ArgListTypes
 relocated_module_attribute(
     'tabular_writer', 'pyomo.common.formatting.tabular_writer',
     version='6.1')
 relocated_module_attribute(
     'sorted_robust', 'pyomo.common.sorting.sorted_robust',
     version='6.1')
+
+IndexedComponent_ArgListTypes = {tuple, HashableTuple}
 
 def display(obj, ostream=None):
     """ Display data in a Pyomo object"""
