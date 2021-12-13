@@ -12,8 +12,7 @@ import copy
 import itertools
 import logging
 import sys
-from six import itervalues
-from six.moves import builtins
+import builtins
 
 from pyomo.common.collections import HashableTuple, ComponentMap
 from pyomo.core.expr.expr_errors import TemplateExpressionError
@@ -84,20 +83,20 @@ class GetItemExpression(ExpressionBase):
         # storage scheme), but as of now [30 Apr 20], there are no known
         # Components where this assumption will cause problems.
         return any( getattr(x, 'is_potentially_variable', _false)()
-                    for x in itervalues(getattr(base, '_data', {})) )
+                    for x in getattr(base, '_data', {}).values() )
 
     def _is_fixed(self, values):
         if not all(values[1:]):
             return False
         _true = lambda: True
         return all( getattr(x, 'is_fixed', _true)()
-                    for x in itervalues(values[0]) )
+                    for x in values[0].values() )
 
     def _compute_polynomial_degree(self, result):
         if any(x != 0 for x in result[1:]):
             return None
         ans = 0
-        for x in itervalues(result[0]):
+        for x in result[0].values():
             if x.__class__ in nonpyomo_leaf_types \
                or not hasattr(x, 'polynomial_degree'):
                 continue
@@ -341,7 +340,9 @@ class TemplateSumExpression(ExpressionBase):
             val = val[1:-1]
         iterStrGenerator = (
             ( ', '.join(str(i) for i in iterGroup),
-              iterGroup[0]._set.to_string(verbose=verbose) )
+              ( iterGroup[0]._set.to_string(verbose=verbose)
+                if hasattr(iterGroup[0]._set, 'to_string')
+                else str(iterGroup[0]._set) ) )
             for iterGroup in self._iters
         )
         if verbose:
@@ -481,9 +482,6 @@ class IndexTemplate(NumericValue):
             _set_name += "(%s)" % (self._index,)
         return "{"+_set_name+"}"
 
-    def to_string(self, verbose=None, labeler=None, smap=None, compute_values=False):
-        return self.name
-
     def set_value(self, values=_NotSpecified, lock=None):
         # It might be nice to check if the value is valid for the base
         # set, but things are tricky when the base set is not dimention
@@ -552,21 +550,21 @@ def resolve_template(expr):
 
 
 class ReplaceTemplateExpression(ExpressionReplacementVisitor):
+    template_types = {GetItemExpression, IndexTemplate}
 
-    def __init__(self, substituter, *args):
-        super(ReplaceTemplateExpression, self).__init__()
+    def __init__(self, substituter, *args, **kwargs):
+        kwargs.setdefault('remove_named_expressions', True)
+        super().__init__(**kwargs)
         self.substituter = substituter
         self.substituter_args = args
 
-    def visiting_potential_leaf(self, node):
-        if type(node) is GetItemExpression or type(node) is IndexTemplate:
-            return True, self.substituter(node, *self.substituter_args)
-
-        return super(
-            ReplaceTemplateExpression, self).visiting_potential_leaf(node)
+    def beforeChild(self, node, child, child_idx):
+        if type(child) in ReplaceTemplateExpression.template_types:
+            return False, self.substituter(child, *self.substituter_args)
+        return super().beforeChild(node, child, child_idx)
 
 
-def substitute_template_expression(expr, substituter, *args):
+def substitute_template_expression(expr, substituter, *args, **kwargs):
     """Substitute IndexTemplates in an expression tree.
 
     This is a general utility function for walking the expression tree
@@ -581,8 +579,8 @@ def substitute_template_expression(expr, substituter, *args):
     Returns:
         a new expression tree with all substitutions done
     """
-    visitor = ReplaceTemplateExpression(substituter, *args)
-    return visitor.dfs_postorder_stack(expr)
+    visitor = ReplaceTemplateExpression(substituter, *args, **kwargs)
+    return visitor.walk_expression(expr)
 
 
 class _GetItemIndexer(object):

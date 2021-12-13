@@ -18,7 +18,7 @@ from pyomo.common.dependencies import (
 import platform
 is_osx = platform.mac_ver()[0] != ''
 
-import pyutilib.th as unittest
+import pyomo.common.unittest as unittest
 import sys
 import os
 import subprocess
@@ -32,37 +32,23 @@ import pyomo.environ as pyo
 from pyomo.opt import SolverFactory
 ipopt_available = SolverFactory('ipopt').available()
 
+from pyomo.common.fileutils import find_library
+pynumero_ASL_available = False if find_library('pynumero_ASL') is None else True
+
 testdir = os.path.dirname(os.path.abspath(__file__))
-
-class Object_from_string_Tester(unittest.TestCase):
-    def setUp(self):
-        self.instance = pyo.ConcreteModel()
-        self.instance.IDX = pyo.Set(initialize=['a', 'b', 'c'])
-        self.instance.x = pyo.Var(self.instance.IDX, initialize=1134)
-        # TBD add a block
-        if parmest.parmest_available:
-            np.random.seed(1134)
-
-    def tearDown(self):
-        pass
-
-    def test_Var(self):
-        # just making sure it executes
-        pyo_Var_obj = parmest._object_from_string(self.instance, "x[b]")
-        fixstatus = pyo_Var_obj.fixed
-        self.assertEqual(fixstatus, False)
 
 
 @unittest.skipIf(not parmest.parmest_available,
                  "Cannot test parmest: required dependencies are missing")
 @unittest.skipIf(not ipopt_available, "The 'ipopt' command is not available")
-class parmest_object_Tester_RB(unittest.TestCase):
+class TestRooneyBiegler(unittest.TestCase):
 
     def setUp(self):
         from pyomo.contrib.parmest.examples.rooney_biegler.rooney_biegler import rooney_biegler_model
 
+        # Note, the data used in this test has been corrected to use data.loc[5,'hour'] = 7 (instead of 6)
         data = pd.DataFrame(data=[[1,8.3],[2,10.3],[3,19.0],
-                                  [4,16.0],[5,15.6],[6,19.8]], columns=['hour', 'y'])
+                                  [4,16.0],[5,15.6],[7,19.8]], columns=['hour', 'y'])
 
         theta_names = ['asymptote', 'rate_constant']
 
@@ -80,9 +66,9 @@ class parmest_object_Tester_RB(unittest.TestCase):
     def test_theta_est(self):
         objval, thetavals = self.pest.theta_est()
 
-        self.assertAlmostEqual(objval, 4.4675, places=2)
-        self.assertAlmostEqual(thetavals['asymptote'], 19.2189, places=2) # 19.1426 from the paper
-        self.assertAlmostEqual(thetavals['rate_constant'], 0.5312, places=2) # 0.5311 from the paper
+        self.assertAlmostEqual(objval, 4.3317112, places=2)
+        self.assertAlmostEqual(thetavals['asymptote'], 19.1426, places=2)  # 19.1426 from the paper
+        self.assertAlmostEqual(thetavals['rate_constant'], 0.5311, places=2)  # 0.5311 from the paper
 
     @unittest.skipIf(not graphics.imports_available,
                      "parmest.graphics imports are unavailable")
@@ -124,8 +110,8 @@ class parmest_object_Tester_RB(unittest.TestCase):
         LR = self.pest.likelihood_ratio_test(obj_at_theta, objval, [0.8, 0.9, 1.0])
 
         self.assertTrue(set(LR.columns) >= set([0.8, 0.9, 1.0]))
-        self.assertTrue(LR[0.8].sum() == 7)
-        self.assertTrue(LR[0.9].sum() == 11)
+        self.assertTrue(LR[0.8].sum() == 6)
+        self.assertTrue(LR[0.9].sum() == 10)
         self.assertTrue(LR[1.0].sum() == 60) # all true
 
         graphics.pairwise_plot(LR, thetavals, 0.8)
@@ -200,37 +186,7 @@ class parmest_object_Tester_RB(unittest.TestCase):
         objval, thetavals, Hessian = self.pest.theta_est(solver="k_aug")
         self.assertAlmostEqual(objval, 4.4675, places=2)
 
-
-'''
-The test cases above were developed with a transcription mistake in the dataset.
-This test works with the correct dataset.
-'''
-@unittest.skipIf(not parmest.parmest_available,
-                 "Cannot test parmest: required dependencies are missing")
-@unittest.skipIf(not ipopt_available, "The 'ipopt' command is not available")
-class parmest_object_Tester_RB_match_paper(unittest.TestCase):
-
-    def setUp(self):
-        from pyomo.contrib.parmest.examples.rooney_biegler.rooney_biegler import rooney_biegler_model
-
-        data = pd.DataFrame(data=[[1,8.3],[2,10.3],[3,19.0],
-                                  [4,16.0],[5,15.6],[7,19.8]], columns=['hour', 'y'])
-
-        theta_names = ['asymptote', 'rate_constant']
-
-        def SSE(model, data):
-            expr = sum((data.y[i] - model.response_function[data.hour[i]])**2 for i in data.index)
-            return expr
-
-        self.pest = parmest.Estimator(rooney_biegler_model, data, theta_names, SSE)
-
-    def test_theta_est(self):
-        objval, thetavals = self.pest.theta_est(calc_cov=False)
-
-        self.assertAlmostEqual(objval, 4.3317112, places=2)
-        self.assertAlmostEqual(thetavals['asymptote'], 19.1426, places=2) # 19.1426 from the paper
-        self.assertAlmostEqual(thetavals['rate_constant'], 0.5311, places=2) # 0.5311 from the paper
-
+    @unittest.skipIf(not pynumero_ASL_available, "pynumero ASL is not available")
     @unittest.skipIf(not parmest.inverse_reduced_hessian_available,
                      "Cannot test covariance matrix: required ASL dependency is missing")
     def test_theta_est_cov(self):
@@ -241,10 +197,10 @@ class parmest_object_Tester_RB_match_paper(unittest.TestCase):
         self.assertAlmostEqual(thetavals['rate_constant'], 0.5311, places=2) # 0.5311 from the paper
 
         # Covariance matrix
-        self.assertAlmostEqual(cov[0,0], 6.30579403, places=2) # 6.22864 from paper
-        self.assertAlmostEqual(cov[0,1], -0.4395341, places=2) # -0.4322 from paper
-        self.assertAlmostEqual(cov[1,0], -0.4395341, places=2) # -0.4322 from paper
-        self.assertAlmostEqual(cov[1,1], 0.04193591, places=2) # 0.04124 from paper
+        self.assertAlmostEqual(cov.iloc[0,0], 6.30579403, places=2) # 6.22864 from paper
+        self.assertAlmostEqual(cov.iloc[0,1], -0.4395341, places=2) # -0.4322 from paper
+        self.assertAlmostEqual(cov.iloc[1,0], -0.4395341, places=2) # -0.4322 from paper
+        self.assertAlmostEqual(cov.iloc[1,1], 0.04193591, places=2) # 0.04124 from paper
 
         ''' Why does the covariance matrix from parmest not match the paper? Parmest is
         calculating the exact reduced Hessian. The paper (Rooney and Bielger, 2001) likely
@@ -258,7 +214,7 @@ class parmest_object_Tester_RB_match_paper(unittest.TestCase):
 @unittest.skipIf(not parmest.parmest_available,
                  "Cannot test parmest: required dependencies are missing")
 @unittest.skipIf(not ipopt_available, "The 'ipopt' command is not available")
-class Test_parmest_indexed_variables(unittest.TestCase):
+class TestIndexedVariables(unittest.TestCase):
 
     def make_model(self, theta_names):
 
@@ -276,7 +232,9 @@ class Test_parmest_indexed_variables(unittest.TestCase):
             model.var_names = pyo.Set(initialize=['asymptote','rate_constant'])
 
             model.theta = pyo.Var(model.var_names, initialize={'asymptote':15, 'rate_constant':0.5})
-
+            model.theta['asymptote'].fixed = True # parmest will unfix theta variables, even when they are indexed
+            model.theta['rate_constant'].fixed = True
+            
             def response_rule(m, h):
                 expr = m.theta['asymptote'] * (1 - pyo.exp(-m.theta['rate_constant'] * h))
                 return expr
@@ -293,7 +251,18 @@ class Test_parmest_indexed_variables(unittest.TestCase):
             return expr
 
         return parmest.Estimator(rooney_biegler_model_alternate, data, theta_names, SSE)
+    
+    def test_theta_est(self):
 
+        theta_names = ["theta"]
+
+        pest = self.make_model(theta_names)
+        objval, thetavals = pest.theta_est(calc_cov=False)
+
+        self.assertAlmostEqual(objval, 4.3317112, places=2)
+        self.assertAlmostEqual(thetavals["theta[asymptote]"], 19.1426, places=2) 
+        self.assertAlmostEqual(thetavals["theta[rate_constant]"], 0.5311, places=2) 
+        
     def test_theta_est_quotedIndex(self):
 
         theta_names = ["theta['asymptote']", "theta['rate_constant']"]
@@ -302,8 +271,8 @@ class Test_parmest_indexed_variables(unittest.TestCase):
         objval, thetavals = pest.theta_est(calc_cov=False)
 
         self.assertAlmostEqual(objval, 4.3317112, places=2)
-        self.assertAlmostEqual(thetavals["theta[asymptote]"], 19.1426, places=2) # 19.1426 from the paper
-        self.assertAlmostEqual(thetavals['theta[rate_constant]'], 0.5311, places=2) # 0.5311 from the paper
+        self.assertAlmostEqual(thetavals["theta[asymptote]"], 19.1426, places=2) 
+        self.assertAlmostEqual(thetavals["theta[rate_constant]"], 0.5311, places=2) 
 
     def test_theta_est_impliedStrIndex(self):
 
@@ -314,14 +283,15 @@ class Test_parmest_indexed_variables(unittest.TestCase):
 
         self.assertAlmostEqual(objval, 4.3317112, places=2)
         self.assertAlmostEqual(thetavals["theta[asymptote]"], 19.1426, places=2) # 19.1426 from the paper
-        self.assertAlmostEqual(thetavals['theta[rate_constant]'], 0.5311, places=2) # 0.5311 from the paper
+        self.assertAlmostEqual(thetavals["theta[rate_constant]"], 0.5311, places=2) # 0.5311 from the paper
 
 
+    @unittest.skipIf(not pynumero_ASL_available, "pynumero ASL is not available")
     @unittest.skipIf(
         not parmest.inverse_reduced_hessian_available,
         "Cannot test covariance matrix: required ASL dependency is missing")
     def test_theta_est_cov(self):
-        theta_names = ["theta[asymptote]", "theta[rate_constant]"]
+        theta_names = ["theta"]
 
         pest = self.make_model(theta_names)
         objval, thetavals, cov = pest.theta_est(calc_cov=True)
@@ -331,10 +301,10 @@ class Test_parmest_indexed_variables(unittest.TestCase):
         self.assertAlmostEqual(thetavals['theta[rate_constant]'], 0.5311, places=2) # 0.5311 from the paper
 
         # Covariance matrix
-        self.assertAlmostEqual(cov[0,0], 6.30579403, places=2) # 6.22864 from paper
-        self.assertAlmostEqual(cov[0,1], -0.4395341, places=2) # -0.4322 from paper
-        self.assertAlmostEqual(cov[1,0], -0.4395341, places=2) # -0.4322 from paper
-        self.assertAlmostEqual(cov[1,1], 0.04193591, places=2) # 0.04124 from paper
+        self.assertAlmostEqual(cov.iloc[0,0], 6.30579403, places=2) # 6.22864 from paper
+        self.assertAlmostEqual(cov.iloc[0,1], -0.4395341, places=2) # -0.4322 from paper
+        self.assertAlmostEqual(cov.iloc[1,0], -0.4395341, places=2) # -0.4322 from paper
+        self.assertAlmostEqual(cov.iloc[1,1], 0.04193591, places=2) # 0.04124 from paper
 
 
 
@@ -342,7 +312,7 @@ class Test_parmest_indexed_variables(unittest.TestCase):
                  "Cannot test parmest: required dependencies are missing")
 @unittest.skipIf(not ipopt_available,
                  "The 'ipopt' solver is not available")
-class parmest_object_Tester_reactor_design(unittest.TestCase):
+class TestReactorDesign(unittest.TestCase):
 
     def setUp(self):
         from pyomo.contrib.parmest.examples.reactor_design.reactor_design import reactor_design_model
@@ -384,6 +354,7 @@ class parmest_object_Tester_reactor_design(unittest.TestCase):
                                       theta_names, SSE, solver_options)
 
     def test_theta_est(self):
+        # used in data reconciliation
         objval, thetavals = self.pest.theta_est()
 
         self.assertAlmostEqual(thetavals['k1'], 5.0/6.0, places=4)
@@ -396,13 +367,12 @@ class parmest_object_Tester_reactor_design(unittest.TestCase):
         self.assertAlmostEqual(data_rec["cc"].loc[18], 893.84924, places=3)
 
 
-
 @unittest.skipIf(not parmest.parmest_available,
                  "Cannot test parmest: required dependencies are missing")
 @unittest.skipIf(not graphics.imports_available,
                  "parmest.graphics imports are unavailable")
 @unittest.skipIf(is_osx, "Disabling graphics tests on OSX due to issue in Matplotlib, see Pyomo PR #1337")
-class parmest_graphics(unittest.TestCase):
+class TestGraphics(unittest.TestCase):
 
     def setUp(self):
         self.A = pd.DataFrame(np.random.randint(0,100,size=(100,4)), columns=list('ABCD'))

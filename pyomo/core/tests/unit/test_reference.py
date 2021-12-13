@@ -15,18 +15,22 @@ import os
 from os.path import abspath, dirname
 currdir = dirname(abspath(__file__))+os.sep
 
-import pyutilib.th as unittest
-from six import itervalues, StringIO, iterkeys, iteritems
+import pyomo.common.unittest as unittest
+from io import StringIO
 
 from pyomo.environ import (
     ConcreteModel, Block, Var, Set, RangeSet, Param, value,
+    NonNegativeIntegers,
 )
-from pyomo.common.collections import OrderedDict, ComponentSet
+from pyomo.common.collections import ComponentSet
 from pyomo.core.base.var import IndexedVar
-from pyomo.core.base.set import SetProduct, UnorderedSetOf
+from pyomo.core.base.set import (
+    SetProduct, FiniteSetOf, OrderedSetOf, UnknownSetDimen, normalize_index,
+)
 from pyomo.core.base.indexed_component import (
     UnindexedComponent_set, IndexedComponent
 )
+from pyomo.core.base.indexed_component_slice import IndexedComponent_slice
 from pyomo.core.base.reference import (
     _ReferenceDict, _ReferenceSet, Reference
 )
@@ -123,16 +127,16 @@ class TestReferenceDict(unittest.TestCase):
         rd = _ReferenceDict(m.b[:,4].x[8,:])
 
         self.assertEqual(
-            list(iterkeys(rd)),
+            list(rd.keys()),
             [(1,10), (1,11), (2,10), (2,11)]
         )
         self.assertEqual(
-            list(itervalues(rd)),
+            list(rd.values()),
             [m.b[1,4].x[8,10], m.b[1,4].x[8,11],
              m.b[2,4].x[8,10], m.b[2,4].x[8,11]]
         )
         self.assertEqual(
-            list(iteritems(rd)),
+            list(rd.items()),
             [((1,10), m.b[1,4].x[8,10]),
              ((1,11), m.b[1,4].x[8,11]),
              ((2,10), m.b[2,4].x[8,10]),
@@ -143,94 +147,94 @@ class TestReferenceDict(unittest.TestCase):
         m = self.m
 
         rd = _ReferenceDict(m.b[:,:].x[:,:])
-        self.assertEqual( sum(x.value for x in itervalues(rd)), 0 )
+        self.assertEqual( sum(x.value for x in rd.values()), 0 )
         rd[1,5,7,10] = 10
         self.assertEqual( m.b[1,5].x[7,10].value, 10 )
-        self.assertEqual( sum(x.value for x in itervalues(rd)), 10 )
+        self.assertEqual( sum(x.value for x in rd.values()), 10 )
 
         rd = _ReferenceDict(m.b[:,4].x[8,:])
-        self.assertEqual( sum(x.value for x in itervalues(rd)), 0 )
+        self.assertEqual( sum(x.value for x in rd.values()), 0 )
         rd[1,10] = 20
         self.assertEqual( m.b[1,4].x[8,10].value, 20 )
-        self.assertEqual( sum(x.value for x in itervalues(rd)), 20 )
+        self.assertEqual( sum(x.value for x in rd.values()), 20 )
 
     def test_attribute_assignment(self):
         m = self.m
 
         rd = _ReferenceDict(m.b[:,:].x[:,:].value)
-        self.assertEqual( sum(x for x in itervalues(rd)), 0 )
+        self.assertEqual( sum(x for x in rd.values()), 0 )
         rd[1,5,7,10] = 10
         self.assertEqual( m.b[1,5].x[7,10].value, 10 )
-        self.assertEqual( sum(x for x in itervalues(rd)), 10 )
+        self.assertEqual( sum(x for x in rd.values()), 10 )
 
         rd = _ReferenceDict(m.b[:,4].x[8,:].value)
-        self.assertEqual( sum(x for x in itervalues(rd)), 0 )
+        self.assertEqual( sum(x for x in rd.values()), 0 )
         rd[1,10] = 20
         self.assertEqual( m.b[1,4].x[8,10].value, 20 )
-        self.assertEqual( sum(x for x in itervalues(rd)), 20 )
+        self.assertEqual( sum(x for x in rd.values()), 20 )
 
         m.x = Var([1,2], initialize=0)
         rd = _ReferenceDict(m.x[:])
-        self.assertEqual( sum(x.value for x in itervalues(rd)), 0 )
+        self.assertEqual( sum(x.value for x in rd.values()), 0 )
         rd[2] = 10
         self.assertEqual( m.x[1].value, 0 )
         self.assertEqual( m.x[2].value, 10 )
-        self.assertEqual( sum(x.value for x in itervalues(rd)), 10 )
+        self.assertEqual( sum(x.value for x in rd.values()), 10 )
 
     def test_single_attribute_assignment(self):
         m = self.m
 
         rd = _ReferenceDict(m.b[1,5].x[:,:])
-        self.assertEqual( sum(x.value for x in itervalues(rd)), 0 )
+        self.assertEqual( sum(x.value for x in rd.values()), 0 )
         rd[7,10].value = 10
         self.assertEqual( m.b[1,5].x[7,10].value, 10 )
-        self.assertEqual( sum(x.value for x in itervalues(rd)), 10 )
+        self.assertEqual( sum(x.value for x in rd.values()), 10 )
 
         rd = _ReferenceDict(m.b[1,4].x[8,:])
-        self.assertEqual( sum(x.value for x in itervalues(rd)), 0 )
+        self.assertEqual( sum(x.value for x in rd.values()), 0 )
         rd[10].value = 20
         self.assertEqual( m.b[1,4].x[8,10].value, 20 )
-        self.assertEqual( sum(x.value for x in itervalues(rd)), 20 )
+        self.assertEqual( sum(x.value for x in rd.values()), 20 )
 
     def test_nested_attribute_assignment(self):
         m = self.m
 
         rd = _ReferenceDict(m.b[:,:].x[:,:])
-        self.assertEqual( sum(x.value for x in itervalues(rd)), 0 )
+        self.assertEqual( sum(x.value for x in rd.values()), 0 )
         rd[1,5,7,10].value = 10
         self.assertEqual( m.b[1,5].x[7,10].value, 10 )
-        self.assertEqual( sum(x.value for x in itervalues(rd)), 10 )
+        self.assertEqual( sum(x.value for x in rd.values()), 10 )
 
         rd = _ReferenceDict(m.b[:,4].x[8,:])
-        self.assertEqual( sum(x.value for x in itervalues(rd)), 0 )
+        self.assertEqual( sum(x.value for x in rd.values()), 0 )
         rd[1,10].value = 20
         self.assertEqual( m.b[1,4].x[8,10].value, 20 )
-        self.assertEqual( sum(x.value for x in itervalues(rd)), 20 )
+        self.assertEqual( sum(x.value for x in rd.values()), 20 )
 
     def test_single_deletion(self):
         m = self.m
 
         rd = _ReferenceDict(m.b[1,5].x[:,:])
-        self.assertEqual(len(list(x.value for x in itervalues(rd))), 2*2)
+        self.assertEqual(len(list(x.value for x in rd.values())), 2*2)
         self.assertTrue((7,10) in rd)
         del rd[7,10]
         self.assertFalse((7,10) in rd)
-        self.assertEqual(len(list(x.value for x in itervalues(rd))), 3)
+        self.assertEqual(len(list(x.value for x in rd.values())), 3)
 
         rd = _ReferenceDict(m.b[1,4].x[8,:])
-        self.assertEqual(len(list(x.value for x in itervalues(rd))), 2)
+        self.assertEqual(len(list(x.value for x in rd.values())), 2)
         self.assertTrue((10) in rd)
         del rd[10]
         self.assertFalse(10 in rd)
-        self.assertEqual(len(list(x.value for x in itervalues(rd))), 2-1)
+        self.assertEqual(len(list(x.value for x in rd.values())), 2-1)
 
-        with self.assertRaisesRegexp(
+        with self.assertRaisesRegex(
                 KeyError,
                 r"\(8, 10\) is not valid for indexed component 'b\[1,4\].x'"):
             del rd[10]
 
         rd = _ReferenceDict(m.b[1,:].x[8,0])
-        with self.assertRaisesRegexp(
+        with self.assertRaisesRegex(
                 KeyError,
                 r"'\(8, 0\)' is not valid for indexed component 'b\[1,4\].x'"):
             del rd[4]
@@ -240,25 +244,25 @@ class TestReferenceDict(unittest.TestCase):
         m = self.m
 
         rd = _ReferenceDict(m.b[:,:].x[:,:])
-        self.assertEqual(len(list(x.value for x in itervalues(rd))), 2*2*2*2)
+        self.assertEqual(len(list(x.value for x in rd.values())), 2*2*2*2)
         self.assertTrue((1,5,7,10) in rd)
         del rd[1,5,7,10]
         self.assertFalse((1,5,7,10) in rd)
-        self.assertEqual(len(list(x.value for x in itervalues(rd))), 2*2*2*2-1)
+        self.assertEqual(len(list(x.value for x in rd.values())), 2*2*2*2-1)
 
         rd = _ReferenceDict(m.b[:,4].x[8,:])
-        self.assertEqual(len(list(x.value for x in itervalues(rd))), 2*2)
+        self.assertEqual(len(list(x.value for x in rd.values())), 2*2)
         self.assertTrue((1,10) in rd)
         del rd[1,10]
         self.assertFalse((1,10) in rd)
-        self.assertEqual(len(list(x.value for x in itervalues(rd))), 2*2-1)
+        self.assertEqual(len(list(x.value for x in rd.values())), 2*2-1)
 
     def test_attribute_deletion(self):
         m = self.m
 
         rd = _ReferenceDict(m.b[:,:].z)
         rd._slice.attribute_errors_generate_exceptions = False
-        self.assertEqual(len(list(x.value for x in itervalues(rd))), 2*2)
+        self.assertEqual(len(list(x.value for x in rd.values())), 2*2)
         self.assertTrue((1,5) in rd)
         self.assertTrue( hasattr(m.b[1,5], 'z') )
         self.assertTrue( hasattr(m.b[2,5], 'z') )
@@ -266,11 +270,11 @@ class TestReferenceDict(unittest.TestCase):
         self.assertFalse((1,5) in rd)
         self.assertFalse( hasattr(m.b[1,5], 'z') )
         self.assertTrue( hasattr(m.b[2,5], 'z') )
-        self.assertEqual(len(list(x.value for x in itervalues(rd))), 3)
+        self.assertEqual(len(list(x.value for x in rd.values())), 3)
 
         rd = _ReferenceDict(m.b[2,:].z)
         rd._slice.attribute_errors_generate_exceptions = False
-        self.assertEqual(len(list(x.value for x in itervalues(rd))), 2)
+        self.assertEqual(len(list(x.value for x in rd.values())), 2)
         self.assertTrue(5 in rd)
         self.assertTrue( hasattr(m.b[2,4], 'z') )
         self.assertTrue( hasattr(m.b[2,5], 'z') )
@@ -278,9 +282,20 @@ class TestReferenceDict(unittest.TestCase):
         self.assertFalse(5 in rd)
         self.assertTrue( hasattr(m.b[2,4], 'z') )
         self.assertFalse( hasattr(m.b[2,5], 'z') )
-        self.assertEqual(len(list(x.value for x in itervalues(rd))), 2-1)
+        self.assertEqual(len(list(x.value for x in rd.values())), 2-1)
 
 class TestReferenceSet(unittest.TestCase):
+    def test_str(self):
+        m = ConcreteModel()
+        @m.Block([1,2], [4,5])
+        def b(b,i,j):
+            b.x = Var([7,8],[10,11], initialize=0)
+            b.y = Var([7,8], initialize=0)
+            b.z = Var()
+
+        rs = _ReferenceSet(m.b[:,5].z)
+        self.assertEqual(str(rs), 'ReferenceSet(b[:, 5].z)')
+
     def test_lookup_and_iter_dense_data(self):
         m = ConcreteModel()
         @m.Block([1,2], [4,5])
@@ -370,22 +385,22 @@ class TestReference(unittest.TestCase):
         m = ConcreteModel()
         m.x = Var([1,2])
         class Foo(object): pass
-        self.assertRaisesRegexp(
+        self.assertRaisesRegex(
             TypeError,
             "First argument to Reference constructors must be a "
-            "component, component slice, Sequence, or Mapping \(received Foo",
+            r"component, component slice, Sequence, or Mapping \(received Foo",
             Reference, Foo()
             )
-        self.assertRaisesRegexp(
+        self.assertRaisesRegex(
             TypeError,
             "First argument to Reference constructors must be a "
-            "component, component slice, Sequence, or Mapping \(received int",
+            r"component, component slice, Sequence, or Mapping \(received int",
             Reference, 5
             )
-        self.assertRaisesRegexp(
+        self.assertRaisesRegex(
             TypeError,
             "First argument to Reference constructors must be a "
-            "component, component slice, Sequence, or Mapping \(received None",
+            r"component, component slice, Sequence, or Mapping \(received None",
             Reference, None
             )
 
@@ -397,7 +412,7 @@ class TestReference(unittest.TestCase):
         self.assertIs(m.r.ctype, Var)
         self.assertIsNot(m.r.index_set(), m.x.index_set())
         self.assertIs(m.x.index_set(), UnindexedComponent_set)
-        self.assertIs(type(m.r.index_set()), UnorderedSetOf)
+        self.assertIs(type(m.r.index_set()), OrderedSetOf)
         self.assertEqual(len(m.r), 1)
         self.assertTrue(m.r.is_indexed())
         self.assertIn(None, m.r)
@@ -411,7 +426,7 @@ class TestReference(unittest.TestCase):
         self.assertIs(m.s.ctype, Var)
         self.assertIsNot(m.s.index_set(), m.x.index_set())
         self.assertIs(m.x.index_set(), UnindexedComponent_set)
-        self.assertIs(type(m.s.index_set()), UnorderedSetOf)
+        self.assertIs(type(m.s.index_set()), OrderedSetOf)
         self.assertEqual(len(m.s), 1)
         self.assertTrue(m.s.is_indexed())
         self.assertIn(None, m.s)
@@ -434,6 +449,62 @@ class TestReference(unittest.TestCase):
         with self.assertRaises(KeyError):
             m.t[3]
 
+    def test_component_data_reference(self):
+        m = ConcreteModel()
+        m.y = Var([1,2])
+        m.r = Reference(m.y[2])
+
+        self.assertIs(m.r.ctype, Var)
+        self.assertIsNot(m.r.index_set(), m.y.index_set())
+        self.assertIs(m.y.index_set(), m.y_index)
+        self.assertIs(type(m.r.index_set()), OrderedSetOf)
+        self.assertEqual(len(m.r), 1)
+        self.assertTrue(m.r.is_indexed())
+        self.assertIn(None, m.r)
+        self.assertNotIn(1, m.r)
+        self.assertIs(m.r[None], m.y[2])
+        with self.assertRaises(KeyError):
+            m.r[2]
+
+    def test_component_data_reference_clone(self):
+        m = ConcreteModel()
+        m.b = Block()
+        m.b.x = Var([1,2])
+        m.c = Block()
+        m.c.r = Reference(m.b.x[2])
+
+        self.assertIs(m.c.r[None], m.b.x[2])
+        m.d = m.c.clone()
+        self.assertIs(m.d.r[None], m.b.x[2])
+
+        i = m.clone()
+        self.assertIs(i.c.r[None], i.b.x[2])
+        self.assertIsNot(i.c.r[None], m.b.x[2])
+        self.assertIs(i.d.r[None], i.b.x[2])
+
+
+    def test_reference_var_pprint(self):
+        m = ConcreteModel()
+        m.x = Var([1,2], initialize={1:4,2:8})
+        m.r = Reference(m.x)
+        buf = StringIO()
+        m.r.pprint(ostream=buf)
+        self.assertEqual(buf.getvalue(),
+"""r : Size=2, Index=x_index, ReferenceTo=x
+    Key : Lower : Value : Upper : Fixed : Stale : Domain
+      1 :  None :     4 :  None : False : False :  Reals
+      2 :  None :     8 :  None : False : False :  Reals
+""")
+        m.s = Reference(m.x[:,...])
+        buf = StringIO()
+        m.s.pprint(ostream=buf)
+        self.assertEqual(buf.getvalue(),
+"""s : Size=2, Index=x_index, ReferenceTo=x[:, ...]
+    Key : Lower : Value : Upper : Fixed : Stale : Domain
+      1 :  None :     4 :  None : False : False :  Reals
+      2 :  None :     8 :  None : False : False :  Reals
+""")
+
     def test_reference_indexedcomponent_pprint(self):
         m = ConcreteModel()
         m.x = Var([1,2], initialize={1:4,2:8})
@@ -441,7 +512,16 @@ class TestReference(unittest.TestCase):
         buf = StringIO()
         m.r.pprint(ostream=buf)
         self.assertEqual(buf.getvalue(),
-"""r : Size=2, Index=x_index
+"""r : Size=2, Index=x_index, ReferenceTo=x
+    Key : Object
+      1 : <class 'pyomo.core.base.var._GeneralVarData'>
+      2 : <class 'pyomo.core.base.var._GeneralVarData'>
+""")
+        m.s = Reference(m.x[:,...], ctype=IndexedComponent)
+        buf = StringIO()
+        m.s.pprint(ostream=buf)
+        self.assertEqual(buf.getvalue(),
+"""s : Size=2, Index=x_index, ReferenceTo=x[:, ...]
     Key : Object
       1 : <class 'pyomo.core.base.var._GeneralVarData'>
       2 : <class 'pyomo.core.base.var._GeneralVarData'>
@@ -527,7 +607,7 @@ class TestReference(unittest.TestCase):
         m.r = Reference(m.b[:].x[3,:])
 
         self.assertIs(m.r.ctype, Var)
-        self.assertIs(type(m.r.index_set()), UnorderedSetOf)
+        self.assertIs(type(m.r.index_set()), FiniteSetOf)
         self.assertEqual(len(m.r), 2*1)
         self.assertEqual(m.r[1,3].lb, 1)
         self.assertEqual(m.r[2,3].lb, 2)
@@ -550,7 +630,7 @@ class TestReference(unittest.TestCase):
         m.r = Reference(m.b[:].x[:])
 
         self.assertIs(m.r.ctype, Var)
-        self.assertIs(type(m.r.index_set()), UnorderedSetOf)
+        self.assertIs(type(m.r.index_set()), FiniteSetOf)
         self.assertEqual(len(m.r), 2*2)
         self.assertEqual(m.r[1,3].lb, 1)
         self.assertEqual(m.r[2,4].lb, 2)
@@ -573,7 +653,7 @@ class TestReference(unittest.TestCase):
         m.r = Reference(m.b[:].x[:])
 
         self.assertIs(m.r.ctype, Var)
-        self.assertIs(type(m.r.index_set()), UnorderedSetOf)
+        self.assertIs(type(m.r.index_set()), FiniteSetOf)
         self.assertEqual(len(m.r), 2*2)
         self.assertEqual(m.r[1,3].lb, 1)
         self.assertEqual(m.r[2,4].lb, 2)
@@ -596,7 +676,7 @@ class TestReference(unittest.TestCase):
         m.r = Reference(m.b[:].x[:,:])
 
         self.assertIs(m.r.ctype, Var)
-        self.assertIs(type(m.r.index_set()), UnorderedSetOf)
+        self.assertIs(type(m.r.index_set()), FiniteSetOf)
         self.assertEqual(len(m.r), 2*2*2)
         self.assertEqual(m.r[1,3,3].lb, 1)
         self.assertEqual(m.r[2,4,3].lb, 2)
@@ -618,8 +698,8 @@ class TestReference(unittest.TestCase):
         self.assertEqual(m.r.index_set().dimen, 2)
         base_sets = list(m.r.index_set().subsets())
         self.assertEqual(len(base_sets), 2)
-        self.assertIs(type(base_sets[0]), UnorderedSetOf)
-        self.assertIs(type(base_sets[1]), UnorderedSetOf)
+        self.assertIs(type(base_sets[0]), OrderedSetOf)
+        self.assertIs(type(base_sets[1]), OrderedSetOf)
 
     def test_ctype_detection(self):
         m = ConcreteModel()
@@ -803,6 +883,171 @@ class TestReference(unittest.TestCase):
                 KeyError, "Index '1' is not valid for indexed component 'r'"):
             m.r[1] = m.x
 
+    def test_reference_to_set(self):
+        m = ConcreteModel()
+        m.I = Set(initialize=[1,3,5])
+        m.r = Reference(m.I)
+        self.assertEqual(len(m.r), 1)
+        self.assertEqual(list(m.r.keys()), [None])
+        self.assertEqual(list(m.r.values()), [m.I])
+        self.assertIs(m.r[None], m.I)
+
+        # Test that a referent Set containing None doesn't break the
+        # None index
+        m = ConcreteModel()
+        m.I = Set(initialize=[1,3,None,5])
+        m.r = Reference(m.I)
+        self.assertEqual(len(m.r), 1)
+        self.assertEqual(list(m.r.keys()), [None])
+        self.assertEqual(list(m.r.values()), [m.I])
+        self.assertIs(m.r[None], m.I)
+
+    def test_is_reference(self):
+        m = ConcreteModel()
+        m.v0 = Var()
+        m.v1 = Var([1,2,3])
+
+        m.ref0 = Reference(m.v0)
+        m.ref1 = Reference(m.v1)
+
+        self.assertFalse(m.v0.is_reference())
+        self.assertFalse(m.v1.is_reference())
+
+        self.assertTrue(m.ref0.is_reference())
+        self.assertTrue(m.ref1.is_reference())
+
+        unique_vars = list(
+                v for v in m.component_objects(Var) if not v.is_reference())
+        self.assertEqual(len(unique_vars), 2)
+
+    def test_referent(self):
+        m = ConcreteModel()
+        m.v0 = Var()
+        m.v2 = Var([1, 2, 3],['a', 'b'])
+
+        varlist = [m.v2[1, 'a'], m.v2[1, 'b']]
+
+        vardict = {
+                0: m.v0,
+                1: m.v2[1, 'a'],
+                2: m.v2[2, 'a'],
+                3: m.v2[3, 'a'],
+                }
+
+        scalar_ref = Reference(m.v0)
+        self.assertIs(scalar_ref.referent, m.v0)
+
+        sliced_ref = Reference(m.v2[:,'a'])
+        referent = sliced_ref.referent
+        self.assertIs(type(referent), IndexedComponent_slice)
+        self.assertEqual(len(referent._call_stack), 1)
+        call, info = referent._call_stack[0]
+        self.assertEqual(call, IndexedComponent_slice.slice_info)
+        self.assertIs(info[0], m.v2)
+        self.assertEqual(info[1], {1: 'a'}) # Fixed
+        self.assertEqual(info[2], {0: slice(None)}) # Sliced
+        self.assertIs(info[3], None) # Ellipsis
+
+        list_ref = Reference(varlist)
+        self.assertIs(list_ref.referent, varlist)
+
+        dict_ref = Reference(vardict)
+        self.assertIs(dict_ref.referent, vardict)
+
+    def test_UnknownSetDimen(self):
+        # Replicate the bug reported in #1928
+        m = ConcreteModel()
+        m.thinga = Set(initialize=['e1', 'e2', 'e3'])
+        m.thingb = Set(initialize=[])
+        m.v = Var(m.thinga | m.thingb)
+        self.assertIs(m.v.dim(), UnknownSetDimen)
+        with self.assertRaisesRegex(
+                IndexError,
+                'Slicing components relies on knowing the underlying '
+                'set dimensionality'):
+            Reference(m.v)
+
+    def test_contains_with_nonflattened(self):
+        # test issue #1800
+        _old_flatten = normalize_index.flatten
+        try:
+            normalize_index.flatten = False
+            m = ConcreteModel()
+            m.d1 = Set(initialize=[1,2])
+            m.d2 = Set(initialize=[('a', 1), ('b', 2)])
+            m.v = Var(m.d2, m.d1)
+            m.ref = Reference(m.v[:,1])
+            self.assertIn(('a', 1), m.ref)
+            self.assertNotIn(('a', 10), m.ref)
+        finally:
+            normalize_index.flatten = _old_flatten
+
+    def test_pprint_nonfinite_sets(self):
+        # test issue #2039
+        self.maxDiff = None
+        m = ConcreteModel()
+        m.v = Var(NonNegativeIntegers, dense=False)
+        m.ref = Reference(m.v)
+        buf = StringIO()
+        m.pprint(ostream=buf)
+        self.assertEqual(buf.getvalue().strip(), """
+1 Var Declarations
+    v : Size=0, Index=NonNegativeIntegers
+        Key : Lower : Value : Upper : Fixed : Stale : Domain
+
+1 IndexedComponent Declarations
+    ref : Size=0, Index=ref_index, ReferenceTo=v
+        Key : Object
+
+1 SetOf Declarations
+    ref_index : Dimen=0, Size=0, Bounds=(None, None)
+        Key  : Ordered : Members
+        None :   False : ReferenceSet(v[...])
+
+3 Declarations: v ref_index ref
+""".strip())
+
+        m.v[3]
+        m.ref[5]
+        buf = StringIO()
+        m.pprint(ostream=buf)
+        self.assertEqual(buf.getvalue().strip(), """
+1 Var Declarations
+    v : Size=2, Index=NonNegativeIntegers
+        Key : Lower : Value : Upper : Fixed : Stale : Domain
+          3 :  None :  None :  None : False :  True :  Reals
+          5 :  None :  None :  None : False :  True :  Reals
+
+1 IndexedComponent Declarations
+    ref : Size=2, Index=ref_index, ReferenceTo=v
+        Key : Object
+          3 : <class 'pyomo.core.base.var._GeneralVarData'>
+          5 : <class 'pyomo.core.base.var._GeneralVarData'>
+
+1 SetOf Declarations
+    ref_index : Dimen=1, Size=2, Bounds=(3, 5)
+        Key  : Ordered : Members
+        None :   False : ReferenceSet(v[...])
+
+3 Declarations: v ref_index ref
+""".strip())
+
+    def test_pprint_nested(self):
+        m = ConcreteModel()
+        @m.Block([1,2])
+        def b(b,i):
+            b.x = Var([3,4], bounds=(i,None))
+        m.r = Reference(m.b[:].x[:])
+        buf = StringIO()
+        m.r.pprint(ostream=buf)
+        self.assertEqual(buf.getvalue().strip(), """
+r : Size=4, Index=r_index, ReferenceTo=b[:].x[:]
+    Key    : Lower : Value : Upper : Fixed : Stale : Domain
+    (1, 3) :     1 :  None :  None : False :  True :  Reals
+    (1, 4) :     1 :  None :  None : False :  True :  Reals
+    (2, 3) :     2 :  None :  None : False :  True :  Reals
+    (2, 4) :     2 :  None :  None : False :  True :  Reals
+""".strip())
 
 if __name__ == "__main__":
     unittest.main()

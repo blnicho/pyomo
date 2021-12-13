@@ -21,6 +21,7 @@ except ImportError as e:
 from scipy.sparse import coo_matrix
 import os
 import numpy as np
+from pyomo.common.deprecation import deprecated
 from pyomo.contrib.pynumero.interfaces.nlp import ExtendedNLP
 
 __all__ = ['AslNLP', 'AmplNLP']
@@ -128,21 +129,11 @@ class AslNLP(ExtendedNLP):
         self._asl.get_g_lower_bounds(self._con_full_lb)
         self._asl.get_g_upper_bounds(self._con_full_ub)
 
-        # check to make sure there are no fixed variables or crossed bounds
-        # TODO: this tolerance should somehow be linked to the algorithm tolerance?
-        # TODO: is the "fixed" check necessary?
-        tolerance_fixed_bounds = 1e-8
+        # check to make sure there are no crossed bounds
         bounds_difference = self._primals_ub - self._primals_lb
-        abs_bounds_difference = np.absolute(bounds_difference)
-        fixed_vars = np.any(abs_bounds_difference < tolerance_fixed_bounds)
-        if fixed_vars:
-            print(np.where(abs_bounds_difference<tolerance_fixed_bounds))
-            raise RuntimeError("Variables fixed using bounds is not currently supported.")
-
-        inconsistent_bounds = np.any(bounds_difference < 0.0)
-        if inconsistent_bounds:
-            # TODO: improve error message
-            raise RuntimeError("Variables found with upper bounds set below the lower bounds.")
+        if np.any(bounds_difference < 0):
+            print(np.where(bounds_difference < 0))
+            raise RuntimeError("Some variables have lower bounds that are greater than the upper bounds.")
 
         # Build the maps for converting from the full constraint
         # vector (which includes all equality and inequality constraints)
@@ -603,8 +594,12 @@ class AslNLP(ExtendedNLP):
             self._asl.eval_hes_lag(self._primals, self._duals_full,
                                    data, obj_factor=self._obj_factor)
             values = np.concatenate((data, data[self._lower_hess_mask]))
-            #TODO: find out why this is done
-            values += 1e-16 # this is to deal with scipy bug temporarily
+            # note: this was done to ensure that scipy did not change
+            # the structure of a sparse matrix if one of the nonzeros
+            # happened to be zero.
+            # CDL: I am removing this for now to see if it is necessary
+            # values += 1e-16 # this is to deal with scipy bug temporarily
+            # CDL
             np.copyto(self._cached_hessian_lag.data, values)
             self._hessian_lag_is_cached = True
 
@@ -682,10 +677,14 @@ class AmplNLP(AslNLP):
             self._name_to_con_eq_idx = {name:idx for idx,name in enumerate(self._con_eq_idx_to_name)}
             self._name_to_con_ineq_idx = {name:idx for idx,name in enumerate(self._con_ineq_idx_to_name)}
 
-            
-    def variable_names(self):
+    def primals_names(self):
         """Returns ordered list with names of primal variables"""
         return list(self._vidx_to_name)
+
+    @deprecated(msg='This method has been replaced with primals_names', version='6.0.0.dev0', remove_in='6.0')
+    def variable_names(self):
+        """Returns ordered list with names of primal variables"""
+        return self.primals_names()
 
     def constraint_names(self):
         """Returns an ordered list with the names of all the constraints
@@ -702,14 +701,18 @@ class AmplNLP(AslNLP):
         (corresponding to evaluate_ineq_constraints)"""
         return list(self._con_ineq_idx_to_name)
 
+    @deprecated(msg='This method has been replaced with primal_idx', version='6.0.0.dev0', remove_in='6.0')
     def variable_idx(self, var_name):
+        return self.primal_idx(var_name)
+
+    def primal_idx(self, var_name):
         """
-        Returns the index of the variable named var_name
+        Returns the index of the primal variable named var_name
 
         Parameters
         ----------
         var_name: str
-            Name of variable
+            Name of primal variable
 
         Returns
         -------

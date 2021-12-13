@@ -14,9 +14,13 @@
 import os
 import random
 
-import pyutilib.th as unittest
+from filecmp import cmp
+import pyomo.common.unittest as unittest
 
-from pyomo.environ import ConcreteModel, Var, Constraint, Objective, Block, ComponentMap
+from pyomo.common.tempfiles import TempfileManager
+from pyomo.environ import (
+    ConcreteModel, Var, Constraint, Objective, Block, ComponentMap,
+)
 
 thisdir = os.path.dirname(os.path.abspath(__file__))
 
@@ -35,16 +39,16 @@ class TestCPXLPOrdering(unittest.TestCase):
 
     def _check_baseline(self, model, **kwds):
         baseline_fname, test_fname = self._get_fnames()
-        self._cleanup(test_fname)
         io_options = {"symbolic_solver_labels": True}
         io_options.update(kwds)
         model.write(test_fname,
                     format="lp",
                     io_options=io_options)
-        self.assertFileEqualsBaseline(
+        self.assertTrue(cmp(
             test_fname,
-            baseline_fname,
-            delete=True)
+            baseline_fname),
+            msg="Files %s and %s differ" % (test_fname, baseline_fname))
+        self._cleanup(test_fname)
 
     # generates an expression in a randomized way so that
     # we can test for consistent ordering of expressions
@@ -209,10 +213,10 @@ class TestCPXLP_writer(unittest.TestCase):
         baseline_fname, test_fname = self._get_fnames()
         self._cleanup(test_fname)
         model.write(test_fname, format='lp')
-        self.assertFileEqualsBaseline(
+        self.assertTrue(cmp(
             test_fname,
-            baseline_fname,
-            delete=True)
+            baseline_fname),
+            msg="Files %s and %s differ" % (test_fname, baseline_fname))
 
     def test_var_on_nonblock(self):
         class Foo(Block().__class__):
@@ -234,6 +238,91 @@ class TestCPXLP_writer(unittest.TestCase):
             model.write, test_fname, format='lp')
         self._cleanup(test_fname)
 
+    def test_obj_con_cache(self):
+        model = ConcreteModel()
+        model.x = Var()
+        model.c = Constraint(expr=model.x >= 1)
+        model.obj = Objective(expr=model.x*2)
+
+        with TempfileManager.new_context() as TMP:
+            lp_file = TMP.create_tempfile(suffix='.lp')
+            model.write(lp_file, format='lp')
+            self.assertFalse(hasattr(model, '_repn'))
+            with open(lp_file) as FILE:
+                lp_ref = FILE.read()
+
+            lp_file = TMP.create_tempfile(suffix='.lp')
+            model._gen_obj_repn = True
+            model.write(lp_file)
+            self.assertEqual(len(model._repn), 1)
+            self.assertIn(model.obj, model._repn)
+            obj_repn = model._repn[model.obj]
+            with open(lp_file) as FILE:
+                lp_test = FILE.read()
+            self.assertEqual(lp_ref, lp_test)
+
+            lp_file = TMP.create_tempfile(suffix='.lp')
+            model._gen_obj_repn = None
+            model._gen_con_repn = True
+            model.write(lp_file)
+            self.assertEqual(len(model._repn), 2)
+            self.assertIn(model.obj, model._repn)
+            self.assertIn(model.c, model._repn)
+            self.assertIs(obj_repn, model._repn[model.obj])
+            obj_repn = model._repn[model.obj]
+            c_repn = model._repn[model.c]
+            with open(lp_file) as FILE:
+                lp_test = FILE.read()
+            self.assertEqual(lp_ref, lp_test)
+
+            lp_file = TMP.create_tempfile(suffix='.lp')
+            model._gen_obj_repn = None
+            model._gen_con_repn = None
+            model.write(lp_file)
+            self.assertEqual(len(model._repn), 2)
+            self.assertIn(model.obj, model._repn)
+            self.assertIn(model.c, model._repn)
+            self.assertIs(obj_repn, model._repn[model.obj])
+            self.assertIs(c_repn, model._repn[model.c])
+            with open(lp_file) as FILE:
+                lp_test = FILE.read()
+            self.assertEqual(lp_ref, lp_test)
+
+            lp_file = TMP.create_tempfile(suffix='.lp')
+            model._gen_obj_repn = True
+            model._gen_con_repn = True
+            model.write(lp_file)
+            self.assertEqual(len(model._repn), 2)
+            self.assertIn(model.obj, model._repn)
+            self.assertIn(model.c, model._repn)
+            self.assertIsNot(obj_repn, model._repn[model.obj])
+            self.assertIsNot(c_repn, model._repn[model.c])
+            obj_repn = model._repn[model.obj]
+            c_repn = model._repn[model.c]
+            with open(lp_file) as FILE:
+                lp_test = FILE.read()
+            self.assertEqual(lp_ref, lp_test)
+
+            lp_file = TMP.create_tempfile(suffix='.lp')
+            model._gen_obj_repn = False
+            model._gen_con_repn = False
+            import pyomo.repn.plugins.ampl.ampl_ as ampl_
+            gsr = ampl_.generate_standard_repn
+            try:
+                def dont_call_gsr(*args, **kwargs):
+                    self.fail("generate_standard_repn should not be called")
+                ampl_.generate_standard_repn = dont_call_gsr
+                model.write(lp_file)
+            finally:
+                ampl_.generate_standard_repn = gsr
+            self.assertEqual(len(model._repn), 2)
+            self.assertIn(model.obj, model._repn)
+            self.assertIn(model.c, model._repn)
+            self.assertIs(obj_repn, model._repn[model.obj])
+            self.assertIs(c_repn, model._repn[model.c])
+            with open(lp_file) as FILE:
+                lp_test = FILE.read()
+            self.assertEqual(lp_ref, lp_test)
 
 
 if __name__ == "__main__":

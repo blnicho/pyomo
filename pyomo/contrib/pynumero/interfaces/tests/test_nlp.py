@@ -8,7 +8,7 @@
 #  This software is distributed under the 3-clause BSD License.
 #  ___________________________________________________________________________
 
-import pyutilib.th as unittest
+import pyomo.common.unittest as unittest
 import os
 
 from pyomo.contrib.pynumero.dependencies import (
@@ -39,7 +39,7 @@ def create_pyomo_model1():
 
     xb = dict()
     xb[1] = (-1,1)
-    xb[2] = (-np.inf,2)
+    xb[2] = (2,2)
     xb[3] = (-3,np.inf)
     xb[4] = (-np.inf, np.inf)
     xb[5] = (-5,5)
@@ -104,7 +104,7 @@ def execute_extended_nlp_interface(self, anlp):
     self.assertEqual(anlp.nnz_jacobian_ineq(), 7*9)
     self.assertEqual(anlp.nnz_hessian_lag(), 9*9)
 
-    expected_primals_lb = np.asarray([-1, -np.inf, -3, -np.inf, -5, -np.inf, -7, -np.inf, -9], dtype=np.float64)
+    expected_primals_lb = np.asarray([-1, 2, -3, -np.inf, -5, -np.inf, -7, -np.inf, -9], dtype=np.float64)
     expected_primals_ub = np.asarray([1, 2, np.inf, np.inf, 5, 6, np.inf, np.inf, 9], dtype=np.float64)
     self.assertTrue(np.array_equal(expected_primals_lb, anlp.primals_lb()))
     self.assertTrue(np.array_equal(expected_primals_ub, anlp.primals_ub()))
@@ -510,6 +510,27 @@ class TestPyomoNLP(unittest.TestCase):
         expected_names = [c.getname() for c in nlp.get_pyomo_constraints()]
         self.assertTrue(constraint_names == expected_names)
 
+        # get_pyomo_equality_constraints
+        eq_constraints = nlp.get_pyomo_equality_constraints()
+        # 2 and 6 are the equality constraints
+        eq_indices = [2, 6] # "indices" here is a bit overloaded
+        expected_eq_ids = [id(self.pm.c[i]) for i in eq_indices]
+        eq_ids = [id(con) for con in eq_constraints]
+        self.assertEqual(eq_ids, expected_eq_ids)
+
+        eq_constraint_names = nlp.equality_constraint_names()
+        expected_eq_names = [c.getname(fully_qualified=True)
+                for c in nlp.get_pyomo_equality_constraints()]
+        self.assertEqual(eq_constraint_names, expected_eq_names)
+
+        # get_pyomo_inequality_constraints
+        ineq_constraints = nlp.get_pyomo_inequality_constraints()
+        # 1, 3, 4, 5, 7, 8, and 9 are the inequality constraints
+        ineq_indices = [1, 3, 4, 5, 7, 8, 9]
+        expected_ineq_ids = [id(self.pm.c[i]) for i in ineq_indices]
+        ineq_ids = [id(con) for con in ineq_constraints]
+        self.assertEqual(eq_ids, expected_eq_ids)
+
         # get_primal_indices
         expected_primal_indices = [i for i in range(9)]
         self.assertTrue(expected_primal_indices == nlp.get_primal_indices([self.pm.x]))
@@ -523,6 +544,30 @@ class TestPyomoNLP(unittest.TestCase):
         expected_constraint_indices = [0, 3, 8, 4]
         constraints = [self.pm.c[1], self.pm.c[4], self.pm.c[9], self.pm.c[5]]
         self.assertTrue(expected_constraint_indices == nlp.get_constraint_indices(constraints))
+
+        # get_equality_constraint_indices
+        pyomo_eq_indices = [2, 6]
+        with self.assertRaises(KeyError):
+            # At least one data object in container is not an equality
+            nlp.get_equality_constraint_indices([self.pm.c])
+        eq_constraints = [self.pm.c[i] for i in pyomo_eq_indices]
+        expected_eq_indices = [0, 1]
+        # ^indices in the list of equality constraints
+        eq_constraint_indices = nlp.get_equality_constraint_indices(
+                eq_constraints)
+        self.assertEqual(expected_eq_indices, eq_constraint_indices)
+
+        # get_inequality_constraint_indices
+        pyomo_ineq_indices = [1, 3, 4, 5, 7, 9]
+        with self.assertRaises(KeyError):
+            # At least one data object in container is not an equality
+            nlp.get_inequality_constraint_indices([self.pm.c])
+        ineq_constraints = [self.pm.c[i] for i in pyomo_ineq_indices]
+        expected_ineq_indices = [0, 1, 2, 3, 4, 6]
+        # ^indices in the list of equality constraints; didn't include 8
+        ineq_constraint_indices = nlp.get_inequality_constraint_indices(
+                ineq_constraints)
+        self.assertEqual(expected_ineq_indices, ineq_constraint_indices)
 
         # extract_subvector_grad_objective
         expected_gradient = np.asarray([2*sum((i+1)*(j+1) for j in range(9)) for i in range(9)], dtype=np.float64)
@@ -580,6 +625,19 @@ class TestPyomoNLP(unittest.TestCase):
         with self.assertRaises(NotImplementedError):
             nlp = PyomoNLP(m)
 
+    def test_invalid_bounds(self):
+        m = pyo.ConcreteModel()
+        m.x = pyo.Var([1, 2, 3], domain=pyo.NonNegativeReals)
+        for i in m.x:
+            m.x[i].ub = i-2
+            m.x[i].value = i
+        m.i3 = pyo.Constraint(expr=m.x[2] + m.x[3] + m.x[1] >= -500.0)
+        m.obj = pyo.Objective(expr=m.x[2]**2)
+        with self.assertRaisesRegex(
+                RuntimeError, "Some variables have lower bounds that "
+                "are greater than the upper bounds"):
+            nlp = PyomoNLP(m)
+
 class TestUtils(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
@@ -600,7 +658,7 @@ class TestUtils(unittest.TestCase):
         # test build_bounds_mask - should be the same as above
         self.assertTrue(np.array_equal(full_to_compressed_mask, build_bounds_mask(anlp.primals_lb())))
 
-        expected_compressed_primals_lb = np.asarray([-1, -3, -5, -7, -9], dtype=np.float64)
+        expected_compressed_primals_lb = np.asarray([-1, 2, -3, -5, -7, -9], dtype=np.float64)
 
         # test build_compression_matrix
         C = build_compression_matrix(full_to_compressed_mask)
@@ -617,7 +675,7 @@ class TestUtils(unittest.TestCase):
         self.assertTrue(np.array_equal(expected_compressed_primals_lb, compressed_primals_lb))
         
         # test compressed_to_full
-        expected_full_primals_lb = np.asarray([-1, -np.inf, -3, -np.inf, -5, -np.inf, -7, -np.inf, -9], dtype=np.float64)
+        expected_full_primals_lb = np.asarray([-1, 2, -3, -np.inf, -5, -np.inf, -7, -np.inf, -9], dtype=np.float64)
         full_primals_lb = compressed_to_full(compressed_primals_lb, full_to_compressed_mask, default=-np.inf)
         self.assertTrue(np.array_equal(expected_full_primals_lb, full_primals_lb))
         # test in place
@@ -627,13 +685,13 @@ class TestUtils(unittest.TestCase):
         self.assertTrue(np.array_equal(expected_full_primals_lb, full_primals_lb))
 
         # test no default
-        expected_full_primals_lb = np.asarray([-1, np.nan, -3, np.nan, -5, np.nan, -7, np.nan, -9], dtype=np.float64)
+        expected_full_primals_lb = np.asarray([-1, 2, -3, np.nan, -5, np.nan, -7, np.nan, -9], dtype=np.float64)
         full_primals_lb = compressed_to_full(compressed_primals_lb, full_to_compressed_mask)
         print(expected_full_primals_lb)
         print(full_primals_lb)
         np.testing.assert_array_equal(expected_full_primals_lb, full_primals_lb)
         # test in place no default
-        expected_full_primals_lb = np.asarray([-1, 0.0, -3, 0.0, -5, 0.0, -7, 0.0, -9], dtype=np.float64)
+        expected_full_primals_lb = np.asarray([-1, 2, -3, 0.0, -5, 0.0, -7, 0.0, -9], dtype=np.float64)
         full_primals_lb.fill(0.0)
         ret = compressed_to_full(compressed_primals_lb, full_to_compressed_mask, out=full_primals_lb)
         self.assertTrue(ret is full_primals_lb)

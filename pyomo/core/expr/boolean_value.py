@@ -1,8 +1,6 @@
 import sys
 import logging
-from six import iteritems
 
-from pyomo.core.expr.expr_errors import TemplateExpressionError
 from pyomo.core.expr.numvalue import native_types, native_logical_types
 from pyomo.core.expr.expr_common import _and, _or, _equiv, _inv, _xor, _impl
 from pyomo.core.pyomoobject import PyomoObject
@@ -75,7 +73,7 @@ class BooleanValue(PyomoObject):
         if hasattr(_base, '__setstate__'):
             return _base.__setstate__(state)
         else:
-            for key, val in iteritems(state):
+            for key, val in state.items():
                 # Note: per the Python data model docs, we explicitly
                 # set the attribute using object.__setattr__() instead
                 # of setting self.__dict__[key] = val.
@@ -99,11 +97,6 @@ class BooleanValue(PyomoObject):
     @property
     def local_name(self):
         return self.getname(fully_qualified=False)
-
-    def cname(self, *args, **kwds):
-        logger.warning(
-            "DEPRECATED: The cname() method has been renamed to getname()." )
-        return self.getname(*args, **kwds)
 
     def is_constant(self):
         """Return True if this Logical value is a constant value"""
@@ -182,7 +175,7 @@ class BooleanValue(PyomoObject):
         Returns:
             A string representation for the expression tree.
         """
-        if compute_values:
+        if compute_values and self.is_fixed():
             try:
                 return str(self())
             except:
@@ -192,7 +185,7 @@ class BooleanValue(PyomoObject):
                 return smap.getSymbol(self, labeler)
             elif labeler is not None:
                 return labeler(self)
-        return self.__str__()
+        return str(self)
 
 
 class BooleanConstant(BooleanValue):

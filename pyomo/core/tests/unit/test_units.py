@@ -12,7 +12,8 @@
 #
 import pickle
 
-import pyutilib.th as unittest
+from pyomo.common.errors import PyomoException
+import pyomo.common.unittest as unittest
 from pyomo.environ import (
     ConcreteModel, Var, Param, Set, Constraint, Objective, Expression,
     ExternalFunction, value, sum_product, maximize, units,
@@ -20,19 +21,49 @@ from pyomo.environ import (
     tanh, asinh, acosh, atanh, ceil, floor,
 )
 from pyomo.common.log import LoggingIntercept
-from pyomo.util.check_units import assert_units_consistent
+from pyomo.util.check_units import (
+    assert_units_consistent, check_units_equivalent,
+)
 from pyomo.core.expr import inequality
 import pyomo.core.expr.current as EXPR
 from pyomo.core.base.units_container import (
-    pint_available, InconsistentUnitsError, UnitsError, PyomoUnitsContainer,
+    pint_available, pint_module, _DeferredUnitsSingleton,
+    InconsistentUnitsError, UnitsError, PyomoUnitsContainer,
 )
-from six import StringIO
+from io import StringIO
 
 def python_callback_function(arg1, arg2):
     return 42.0
 
 @unittest.skipIf(not pint_available, 'Testing units requires pint')
 class TestPyomoUnit(unittest.TestCase):
+
+    def test_container_constructor(self):
+        # Custom pint registry:
+        um0 = PyomoUnitsContainer(None)
+        self.assertIsNone(um0.pint_registry)
+        self.assertIsNone(um0._pint_dimensionless)
+        um1 = PyomoUnitsContainer()
+        self.assertIsNotNone(um1.pint_registry)
+        self.assertIsNotNone(um1._pint_dimensionless)
+        with self.assertRaisesRegex(
+                ValueError,
+                'Cannot operate with Unit and Unit of different registries'):
+            self.assertEqual(um1._pint_dimensionless, units._pint_dimensionless)
+        self.assertIsNot(um1.pint_registry, units.pint_registry)
+        um2 = PyomoUnitsContainer(pint_module.UnitRegistry())
+        self.assertIsNotNone(um2.pint_registry)
+        self.assertIsNotNone(um2._pint_dimensionless)
+        with self.assertRaisesRegex(
+                ValueError,
+                'Cannot operate with Unit and Unit of different registries'):
+            self.assertEqual(um2._pint_dimensionless, units._pint_dimensionless)
+        self.assertIsNot(um2.pint_registry, units.pint_registry)
+        self.assertIsNot(um2.pint_registry, um1.pint_registry)
+
+        um3 = PyomoUnitsContainer(units.pint_registry)
+        self.assertIs(um3.pint_registry, units.pint_registry)
+        self.assertEqual(um3._pint_dimensionless, units._pint_dimensionless)
 
     def test_PyomoUnit_NumericValueMethods(self):
         m = ConcreteModel()
@@ -93,9 +124,9 @@ class TestPyomoUnit(unittest.TestCase):
         # check div / truediv
         self.assertEqual(str(uc.get_units(kg/3.0)), 'kg')
         # check rdiv / rtruediv
-        self.assertEqual(str(uc.get_units(3.0/kg)), '1 / kg')
+        self.assertEqual(str(uc.get_units(3.0/kg)), '1/kg')
         # check pow
-        self.assertEqual(str(uc.get_units(kg**2)), 'kg ** 2')
+        self.assertEqual(str(uc.get_units(kg**2)), 'kg**2')
 
         # check rpow
         x = 2 ** kg  # creation is allowed, only fails when units are "checked"
@@ -116,7 +147,7 @@ class TestPyomoUnit(unittest.TestCase):
 
         x = kg
         x **= 3
-        self.assertEqual(str(uc.get_units(x)), 'kg ** 3')
+        self.assertEqual(str(uc.get_units(x)), 'kg**3')
 
         self.assertEqual(str(uc.get_units(-kg)), 'kg')
         self.assertEqual(str(uc.get_units(+kg)), 'kg')
@@ -130,7 +161,10 @@ class TestPyomoUnit(unittest.TestCase):
         self.assertEqual(kg.to_string(), 'kg')
 
         # check __nonzero__ / __bool__
-        self.assertEqual(bool(kg), True)
+        with self.assertRaisesRegex(
+                PyomoException, r"Cannot convert non-constant Pyomo "
+                r"numeric value \(kg\) to bool."):
+            bool(kg)
 
         # __call__ returns 1.0
         self.assertEqual(kg(), 1.0)
@@ -155,7 +189,7 @@ class TestPyomoUnit(unittest.TestCase):
             self.assertEqual(str_check, str(pyomo_units_container.get_units(x)))
         else:
             # if str_check is None, then we expect the units to be None
-            self.assertEqual(None, pyomo_units_container.get_units(x))
+            self.assertIsNone(pyomo_units_container.get_units(x))
 
     def _get_check_units_fail(self, x, pyomo_units_container, expected_type=None, expected_error=InconsistentUnitsError):
         if expected_type is not None:
@@ -210,29 +244,29 @@ class TestPyomoUnit(unittest.TestCase):
         self._get_check_units_fail(3.0*kg + 1.0*kg + 2.0*m, uc, EXPR.NPV_SumExpression)
 
         # test ProductExpression, NPV_ProductExpression
-        self._get_check_units_ok(model.x*kg * model.y*m, uc, 'kg * m', EXPR.ProductExpression)
-        self._get_check_units_ok(3.0*kg * 1.0*m, uc, 'kg * m', EXPR.NPV_ProductExpression)
-        self._get_check_units_ok(3.0*kg*m, uc, 'kg * m', EXPR.NPV_ProductExpression)
+        self._get_check_units_ok(model.x*kg * model.y*m, uc, 'kg*m', EXPR.ProductExpression)
+        self._get_check_units_ok(3.0*kg * 1.0*m, uc, 'kg*m', EXPR.NPV_ProductExpression)
+        self._get_check_units_ok(3.0*kg*m, uc, 'kg*m', EXPR.NPV_ProductExpression)
         # I don't think that there are combinations that can "fail" for products
 
         # test MonomialTermExpression
         self._get_check_units_ok(model.x*kg, uc, 'kg', EXPR.MonomialTermExpression)
 
         # test DivisionExpression, NPV_DivisionExpression
-        self._get_check_units_ok(1.0/(model.x*kg), uc, '1 / kg', EXPR.DivisionExpression)
-        self._get_check_units_ok(2.0/kg, uc, '1 / kg', EXPR.NPV_DivisionExpression)
+        self._get_check_units_ok(1.0/(model.x*kg), uc, '1/kg', EXPR.DivisionExpression)
+        self._get_check_units_ok(2.0/kg, uc, '1/kg', EXPR.NPV_DivisionExpression)
         self._get_check_units_ok((model.x*kg)/1.0, uc, 'kg', EXPR.MonomialTermExpression)
         self._get_check_units_ok(kg/2.0, uc, 'kg', EXPR.NPV_DivisionExpression)
-        self._get_check_units_ok(model.y*m/(model.x*kg), uc, 'm / kg', EXPR.DivisionExpression)
-        self._get_check_units_ok(m/kg, uc, 'm / kg', EXPR.NPV_DivisionExpression)
+        self._get_check_units_ok(model.y*m/(model.x*kg), uc, 'm/kg', EXPR.DivisionExpression)
+        self._get_check_units_ok(m/kg, uc, 'm/kg', EXPR.NPV_DivisionExpression)
         # I don't think that there are combinations that can "fail" for products
 
         # test PowExpression, NPV_PowExpression
         # ToDo: fix the str representation to combine the powers or the expression system
-        self._get_check_units_ok((model.x*kg**2)**3, uc, 'kg ** 6', EXPR.PowExpression) # would want this to be kg**6
+        self._get_check_units_ok((model.x*kg**2)**3, uc, 'kg**6', EXPR.PowExpression) # would want this to be kg**6
         self._get_check_units_fail(kg**model.x, uc, EXPR.PowExpression, UnitsError)
         self._get_check_units_fail(model.x**kg, uc, EXPR.PowExpression, UnitsError)
-        self._get_check_units_ok(kg**2, uc, 'kg ** 2', EXPR.NPV_PowExpression)
+        self._get_check_units_ok(kg**2, uc, 'kg**2', EXPR.NPV_PowExpression)
         self._get_check_units_fail(3.0**kg, uc, EXPR.NPV_PowExpression, UnitsError)
 
         # test NegationExpression, NPV_NegationExpression
@@ -315,10 +349,10 @@ class TestPyomoUnit(unittest.TestCase):
         # sqrt
         self._get_check_units_ok(sqrt(3.0*model.x), uc, None, EXPR.UnaryFunctionExpression)
         self._get_check_units_ok(sqrt(3.0*model.x*kg**2), uc, 'kg', EXPR.UnaryFunctionExpression)
-        self._get_check_units_ok(sqrt(3.0*model.x*kg), uc, 'kg ** 0.5', EXPR.UnaryFunctionExpression)
+        self._get_check_units_ok(sqrt(3.0*model.x*kg), uc, 'kg**0.5', EXPR.UnaryFunctionExpression)
         self._get_check_units_ok(sqrt(3.0*model.p), uc, None, EXPR.NPV_UnaryFunctionExpression)
         self._get_check_units_ok(sqrt(3.0*model.p*kg**2), uc, 'kg', EXPR.NPV_UnaryFunctionExpression)
-        self._get_check_units_ok(sqrt(3.0*model.p*kg), uc, 'kg ** 0.5', EXPR.NPV_UnaryFunctionExpression)
+        self._get_check_units_ok(sqrt(3.0*model.p*kg), uc, 'kg**0.5', EXPR.NPV_UnaryFunctionExpression)
         # asinh
         self._get_check_units_ok(asinh(3.0*model.x), uc, 'rad', EXPR.UnaryFunctionExpression)
         self._get_check_units_fail(asinh(3.0*kg*model.x), uc, EXPR.UnaryFunctionExpression, UnitsError)
@@ -421,7 +455,7 @@ class TestPyomoUnit(unittest.TestCase):
         m.x = Var(units=uc.kg)
         m.y = Var(units=uc.m)
         m.e = Expression(expr=m.x/m.y)
-        self.assertEqual(str(uc.get_units(m.e)), 'kg / m')
+        self.assertEqual(str(uc.get_units(m.e)), 'kg/m')
 
     def test_dimensionless(self):
         uc = units
@@ -429,8 +463,8 @@ class TestPyomoUnit(unittest.TestCase):
         dless = uc.dimensionless
         self._get_check_units_ok(2.0 == 2.0*dless, uc, None, EXPR.EqualityExpression)
         self.assertEqual(uc.get_units(2.0*dless), uc.get_units(2.0))
-        self.assertEqual(None, uc.get_units(2.0*dless))
-        self.assertEqual(None, uc.get_units(kg/kg))
+        self.assertIsNone(uc.get_units(2.0*dless))
+        self.assertIsNone(uc.get_units(kg/kg))
 
     def test_temperatures(self):
         uc = units
@@ -481,7 +515,7 @@ class TestPyomoUnit(unittest.TestCase):
         model = ConcreteModel()
         model.acc = Var()
         model.obj = Objective(expr=(model.acc*units.m/units.s**2 - 9.81*units.m/units.s**2)**2)
-        self.assertEqual('m ** 2 / s ** 4', str(units.get_units(model.obj.expr)))
+        self.assertEqual('m**2/s**4', str(units.get_units(model.obj.expr)))
 
     def test_convert_value(self):
         u = units
@@ -575,7 +609,7 @@ class TestPyomoUnit(unittest.TestCase):
         self.assertEqual("", log.getvalue())
         self.assertIsNot(m.x, i.x)
         self.assertIsNot(m.x._units, i.x._units)
-        self.assertEqual(m.x._units, i.x._units)
+        self.assertTrue(check_units_equivalent(m.x._units, i.x._units))
         self.assertEqual(str(m.c.upper), str(i.c.upper))
         base = StringIO()
         m.pprint(base)
@@ -584,7 +618,7 @@ class TestPyomoUnit(unittest.TestCase):
         self.assertEqual(base.getvalue(), test.getvalue())
 
         # Test pickling a custom units manager
-        um = PyomoUnitsContainer()
+        um = PyomoUnitsContainer(pint_module.UnitRegistry())
         m = ConcreteModel()
         m.x = Var(units=um.kg)
         m.c = Constraint(expr=m.x**2 <= 10*um.kg**2)
@@ -609,6 +643,29 @@ class TestPyomoUnit(unittest.TestCase):
         test = StringIO()
         i.pprint(test)
         self.assertEqual(base.getvalue(), test.getvalue())
+
+    def test_set_pint_registry(self):
+        um = _DeferredUnitsSingleton()
+        pint_reg = pint_module.UnitRegistry()
+        # Test we can (silently) set the registry if it is the first
+        # thing we do
+        with LoggingIntercept() as LOG:
+            um.set_pint_registry(pint_reg)
+        self.assertEqual(LOG.getvalue(), "")
+        self.assertIs(um.pint_registry, pint_reg)
+        # Test that a no-op set is silent
+        with LoggingIntercept() as LOG:
+            um.set_pint_registry(pint_reg)
+        self.assertEqual(LOG.getvalue(), "")
+        # Test that changing the registry generates a warning
+        with LoggingIntercept() as LOG:
+            um.set_pint_registry(pint_module.UnitRegistry())
+        self.assertIn(
+            "Changing the pint registry used by the Pyomo Units "
+            "system after the PyomoUnitsContainer was constructed",
+            LOG.getvalue()
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -99,7 +99,7 @@ class ScaleModel(Transformation):
                 % (scaling_factor, component_data))
         return scaling_factor
 
-    def _apply_to(self, model, **kwds):
+    def _apply_to(self, model, rename=True):
         # create a map of component to scaling factor
         component_scaling_factor_map = ComponentMap()
 
@@ -117,19 +117,34 @@ class ScaleModel(Transformation):
             raise ValueError("ScaleModel transformation: unknown scaling_method found"
                              "-- supported values: 'user' ")
 
-        # rename all the Vars, Constraints, and Objectives from foo to scaled_foo
-        scaled_component_to_original_name_map = \
-            rename_components(model=model,
-                              component_list=list(model.component_objects(ctype=[Var, Constraint, Objective])),
-                              prefix='scaled_')
+        if rename:
+            # rename all the Vars, Constraints, and Objectives
+            # from foo to scaled_foo
+            component_list = list(model.component_objects(
+                ctype=[Var, Constraint, Objective]))
+            scaled_component_to_original_name_map = rename_components(
+                    model=model,
+                    component_list=component_list,
+                    prefix='scaled_',
+                    )
+        else:
+            scaled_component_to_original_name_map = ComponentMap(
+                    [(comp, comp.name) for comp in 
+                        model.component_objects(
+                            ctype=[Var,Constraint, Objective])]
+                    )
 
         # scale the variable bounds and values and build the variable substitution map
         # for scaling vars in constraints
         variable_substitution_map = ComponentMap()
+        already_scaled = set()
         for variable in [var for var in model.component_objects(ctype=Var, descend_into=True)]:
             # set the bounds/value for the scaled variable
             for k in variable:
                 v = variable[k]
+                if id(v) in already_scaled:
+                    continue
+                already_scaled.add(id(v))
                 scaling_factor = component_scaling_factor_map[v]
                 variable_substitution_map[v] = v / scaling_factor
 
@@ -143,7 +158,10 @@ class ScaleModel(Transformation):
                     v.setub(temp)
 
                 if v.value is not None:
-                    v.value = value(v) * scaling_factor
+                    # Since the value was OK in the unscaled space, it
+                    # should be safe to assume it is still valid in the
+                    # scaled space)
+                    v.set_value(value(v) * scaling_factor, skip_validation=True)
 
         # scale the objectives/constraints and perform the scaled variable substitution
         scale_constraint_dual = False
@@ -156,9 +174,13 @@ class ScaleModel(Transformation):
         variable_substitution_dict = {id(k):variable_substitution_map[k]
                                       for k in variable_substitution_map}
 
+        already_scaled = set()
         for component in model.component_objects(ctype=(Constraint, Objective), descend_into=True):
             for k in component:
                 c = component[k]
+                if id(c) in already_scaled:
+                    continue
+                already_scaled.add(id(c))
                 # perform the constraint/objective scaling and variable sub
                 scaling_factor = component_scaling_factor_map[c]
                 if isinstance(c, _ConstraintData):
@@ -169,20 +191,25 @@ class ScaleModel(Transformation):
                                                remove_named_expressions=True)
 
                     # scale the rhs
-                    if c._lower is not None:
-                        c._lower = c._lower * scaling_factor
-                    if c._upper is not None:
-                        c._upper = c._upper * scaling_factor
+                    lower = c.lower
+                    upper = c.upper
+                    if lower is not None:
+                        lower = lower * scaling_factor
+                    if upper is not None:
+                        upper = upper * scaling_factor
 
                     if scaling_factor < 0:
-                        c._lower, c._upper = c._upper, c._lower
+                        lower, upper = upper, lower
 
                     if scale_constraint_dual and c in model.dual:
                         dual_value = model.dual[c]
                         if dual_value is not None:
                             model.dual[c] = dual_value / scaling_factor
-
-                    c.set_value((c._lower, body, c._upper))
+                    
+                    if c.equality:
+                        c.set_value((lower, body))
+                    else:
+                        c.set_value((lower, body, upper))
 
                 elif isinstance(c, _ObjectiveData):
                     c.expr = scaling_factor * \
@@ -240,10 +267,14 @@ class ScaleModel(Transformation):
         for scaled_v in scaled_model.component_objects(ctype=Var, descend_into=True):
             # get the unscaled_v from the original model
             original_v_path = scaled_component_to_original_name_map[scaled_v]
+            # This will not work if decimal indices are present:
             original_v = original_model.find_component(original_v_path)
 
             for k in scaled_v:
-                original_v[k].value = value(scaled_v[k]) / component_scaling_factor_map[scaled_v[k]]
+                original_v[k].set_value(
+                    value(scaled_v[k]) / component_scaling_factor_map[scaled_v[k]],
+                    skip_validation=True,
+                )
                 if check_reduced_costs and scaled_v[k] in scaled_model.rc:
                     original_model.rc[original_v[k]] = scaled_model.rc[scaled_v[k]] * component_scaling_factor_map[
                         scaled_v[k]] / objective_scaling_factor

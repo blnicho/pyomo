@@ -8,15 +8,13 @@
 #  This software is distributed under the 3-clause BSD License.
 #  ___________________________________________________________________________
 
-import six
-
+from pyomo.common.collections import ComponentSet
 from pyomo.core.base.indexed_component import normalize_index
 from pyomo.core.base.indexed_component_slice import IndexedComponent_slice
 from pyomo.core.base.global_set import UnindexedComponent_set
-from pyomo.common.collections import ComponentSet, ComponentMap
 
 def _to_iterable(source):
-    iterable_scalars = six.string_types + (six.binary_type, six.text_type)
+    iterable_scalars = (str, bytes)
     if hasattr(source, '__iter__'):
         if isinstance(source, iterable_scalars):
             yield source
@@ -106,6 +104,12 @@ def slice_component_along_sets(comp, sets, context=None):
         Slice of `comp` with wildcards replacing the indices of `sets`    
 
     """
+    # Cast to ComponentSet so a tuple or list of sets is an appropriate
+    # argument. Otherwise a tuple or list of sets will potentially
+    # silently do the wrong thing (as inclusion in a tuple or list does
+    # not distinguish between different sets with the same elements).
+    sets = ComponentSet(sets)
+
     if context is None:
         context = comp.model()
     call_stack = get_component_call_stack(comp, context)
@@ -125,6 +129,8 @@ def slice_component_along_sets(comp, sets, context=None):
             # Process arg to replace desired indices with slices.
             location_set_map = get_location_set_map(arg, index_set)
             arg = replace_indices(arg, location_set_map, sets)
+            if normalize_index.flatten:
+                arg = normalize_index(arg)
             sliced_comp = sliced_comp[arg]
 
     return sliced_comp
@@ -148,6 +154,7 @@ def replace_indices(index, location_set_map, sets):
     `tuple`: Index with values replaced by slices
 
     """
+    sets = ComponentSet(sets)
     index = tuple(_to_iterable(index))
     new_index = []
     loc = 0

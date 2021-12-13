@@ -106,6 +106,9 @@ class MultiStart(object):
         """
         return True
 
+    def license_is_valid(self):
+        return True
+
     def solve(self, model, **kwds):
         # initialize keyword args
         config = self.CONFIG(kwds.pop('options', {}))
@@ -205,7 +208,7 @@ class MultiStart(object):
             best_soln_var_list = getattr(best_model, tmp_var_list_name)
             for orig_var, new_var in zip(orig_var_list, best_soln_var_list):
                 if not orig_var.is_fixed():
-                    orig_var.value = new_var.value
+                    orig_var.set_value(new_var.value, skip_validation=True)
 
             return best_result
         finally:

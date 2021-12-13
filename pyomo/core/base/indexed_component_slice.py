@@ -7,9 +7,13 @@
 #  rights in this software.
 #  This software is distributed under the 3-clause BSD License.
 #  ___________________________________________________________________________
+
 import copy
-from six import iteritems, iterkeys, advance_iterator
+import itertools
+
 from pyomo.common import DeveloperError
+from pyomo.common.collections import Sequence
+
 
 class IndexedComponent_slice(object):
     """Special class for slicing through hierarchical component trees
@@ -121,7 +125,7 @@ class IndexedComponent_slice(object):
     def __setstate__(self, state):
         """Deserialize the state into this object. """
         set_attr = super(IndexedComponent_slice, self).__setattr__
-        for k,v in iteritems(state):
+        for k,v in state.items():
             set_attr(k,v)
 
     def __deepcopy__(self, memo):
@@ -203,7 +207,7 @@ class IndexedComponent_slice(object):
             pass
         return None
 
-    def __call__(self, *idx, **kwds):
+    def __call__(self, *args, **kwds):
         """Special handling of the "()" operator for component slices.
 
         Creating a slice of a component returns a IndexedComponent_slice
@@ -229,7 +233,7 @@ class IndexedComponent_slice(object):
             self._len -= 1
 
         ans = IndexedComponent_slice(self, (
-            IndexedComponent_slice.call, idx, kwds ) )
+            IndexedComponent_slice.call, args, kwds ) )
         # Because we just duplicated the slice and added a new entry, we
         # know that the _len == len(_call_stack)
         if ans._call_stack[-2][1] == 'component':
@@ -238,6 +242,52 @@ class IndexedComponent_slice(object):
             # Note: simply calling "list(self)" results in infinite
             # recursion in python2.6
             return list( i for i in ans )
+
+    @classmethod
+    def _getitem_args_to_str(cls, args):
+        for i, v in enumerate(args):
+            if v is Ellipsis:
+                args[i] = '...'
+            elif type(v) is slice:
+                args[i] = (
+                    (repr(v.start) if v.start is not None else '') + ':' +
+                    (repr(v.stop) if v.stop is not None else '') +
+                    (':%r' % v.step if v.step is not None else ''))
+            else:
+                args[i] = repr(v)
+        return '[' + ', '.join(args) + ']'
+
+    def __str__(self):
+        ans = ''
+        for level in self._call_stack:
+            if level[0] == IndexedComponent_slice.slice_info:
+                ans += level[1][0].name
+                tmp = dict(level[1][1])
+                tmp.update(level[1][2])
+                if level[1][3] is not None:
+                    tmp[level[1][3]] = Ellipsis
+                ans += self._getitem_args_to_str([tmp[i] for i in sorted(tmp)])
+            elif level[0] & IndexedComponent_slice.ITEM_MASK:
+                if isinstance(level[1], Sequence):
+                    tmp = list(level[1])
+                else:
+                    tmp = [level[1]]
+                ans += self._getitem_args_to_str(tmp)
+            elif level[0] & IndexedComponent_slice.ATTR_MASK:
+                ans += '.' + level[1]
+            elif level[0] & IndexedComponent_slice.CALL_MASK:
+                ans += (
+                    '(' + ', '.join(
+                        itertools.chain(
+                            (repr(_) for _ in level[1]),
+                            ('%s=%r' % kv for kv in level[2].items()))
+                    ) + ')'
+                )
+            if level[0] & IndexedComponent_slice.SET_MASK:
+                ans += ' = %r' % (level[2],)
+            elif level[0] & IndexedComponent_slice.DEL_MASK:
+                ans = 'del ' + ans
+        return ans
 
     def __hash__(self):
         return hash(tuple(_freeze(x) for x in self._call_stack[:self._len]))
@@ -284,8 +334,8 @@ def _freeze(info):
         return (
             info[0],
             id(info[1][0]),  # id of the Component
-            tuple(iteritems(info[1][1])), # {idx: value} for fixed
-            tuple(iterkeys(info[1][2])),  # {idx: slice} for slices
+            tuple(info[1][1].items()), # {idx: value} for fixed
+            tuple(info[1][2].keys()),  # {idx: slice} for slices
             info[1][3]  # elipsis index
         )
     elif info[0] & IndexedComponent_slice.ITEM_MASK:
@@ -322,13 +372,13 @@ class _slice_generator(object):
             or len(self.component._implicit_subsets) == 1 )
 
         self.explicit_index_count = len(fixed) + len(sliced)
-        if iter_over_index:
+        if iter_over_index and component.index_set().isfinite():
             # This should be used to iterate over all the potential
             # indices of a sparse IndexedComponent.
             self.component_iter = component.index_set().__iter__()
         else:
             # The default behavior is to iterate over the component.
-            self.component_iter = component.__iter__()
+            self.component_iter = component.keys()
 
         # Cache for the most recent index returned. This is used to
         # iterate over keys of the slice (for instance, in a
@@ -349,7 +399,7 @@ class _slice_generator(object):
             # Note: running off the end of the underlying iterator will
             # generate a StopIteration exception that will propagate up
             # and end this iterator.
-            index = advance_iterator(self.component_iter)
+            index = next(self.component_iter)
 
             # We want a tuple of indices, so convert scalars to tuples
             if normalize_index.flatten:
@@ -370,7 +420,7 @@ class _slice_generator(object):
                 continue
 
             valid = True
-            for key, val in iteritems(self.fixed):
+            for key, val in self.fixed.items():
                 # If this index of the component does not match all
                 # the specified fixed indices, don't return anything.
                 if not val == _idx[key]:
@@ -407,7 +457,7 @@ _IndexedComponent_slice = IndexedComponent_slice
 
 # Mock up a callable object with a "check_complete" method
 def _advance_iter(_iter):
-    return advance_iterator(_iter)
+    return next(_iter)
 def _advance_iter_check_complete():
     pass
 _advance_iter.check_complete = _advance_iter_check_complete
