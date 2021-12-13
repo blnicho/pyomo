@@ -921,7 +921,7 @@ def templatize_constraint(constraint, indices=None, context=None):
             constraint.parent_block(), constraint.rule, indices, context)
     if not constraint._data:
         raise RuntimeError("Cannot templatize an empty constraint with no rule")
-    _conData = next(itervalues(constraint._data))
+    _conData = next(iter(constraint._data.values()))
     if _conData.parent_component() is constraint:
         raise RuntimeError("Cannot templatize a constraint with no rule")
     # This *should* be a Reference.  We may need to create temporary
