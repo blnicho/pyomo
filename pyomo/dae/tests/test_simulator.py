@@ -32,7 +32,7 @@ from pyomo.dae.simulator import (
 )
 from pyomo.core.expr.template_expr import (
     IndexTemplate, 
-    _GetItemIndexer,
+    _GetAttrIndexer
 )
 from pyomo.common.fileutils import import_file
 
@@ -119,13 +119,13 @@ class TestSimulator(unittest.TestCase):
         mysim = Simulator(m)
 
         self.assertEqual(len(mysim._diffvars), 4)
-        self.assertEqual(mysim._diffvars[0], _GetItemIndexer(m.v[t]))
-        self.assertEqual(mysim._diffvars[1], _GetItemIndexer(m.w[t, 1]))
-        self.assertEqual(mysim._diffvars[2], _GetItemIndexer(m.w[t, 2]))
+        self.assertEqual(mysim._diffvars[0], _GetAttrIndexer(m.v[t]))
+        self.assertEqual(mysim._diffvars[1], _GetAttrIndexer(m.w[t, 1]))
+        self.assertEqual(mysim._diffvars[2], _GetAttrIndexer(m.w[t, 2]))
         self.assertEqual(len(mysim._derivlist), 4)
-        self.assertEqual(mysim._derivlist[0], _GetItemIndexer(m.dv[t]))
-        self.assertEqual(mysim._derivlist[1], _GetItemIndexer(m.dw[t, 1]))
-        self.assertEqual(mysim._derivlist[2], _GetItemIndexer(m.dw[t, 2]))
+        self.assertEqual(mysim._derivlist[0], _GetAttrIndexer(m.dv[t]))
+        self.assertEqual(mysim._derivlist[1], _GetAttrIndexer(m.dw[t, 1]))
+        self.assertEqual(mysim._derivlist[2], _GetAttrIndexer(m.dw[t, 2]))
         self.assertEqual(len(mysim._rhsdict), 4)
         m.del_component('deqv')
         m.del_component('deqw')
@@ -159,13 +159,13 @@ class TestSimulator(unittest.TestCase):
         mysim = Simulator(m)
 
         self.assertEqual(len(mysim._diffvars), 4)
-        self.assertEqual(mysim._diffvars[0], _GetItemIndexer(m.v[t]))
-        self.assertEqual(mysim._diffvars[1], _GetItemIndexer(m.w[t, 1]))
-        self.assertEqual(mysim._diffvars[2], _GetItemIndexer(m.w[t, 2]))
+        self.assertEqual(mysim._diffvars[0], _GetAttrIndexer(m.v[t]))
+        self.assertEqual(mysim._diffvars[1], _GetAttrIndexer(m.w[t, 1]))
+        self.assertEqual(mysim._diffvars[2], _GetAttrIndexer(m.w[t, 2]))
         self.assertEqual(len(mysim._derivlist), 4)
-        self.assertEqual(mysim._derivlist[0], _GetItemIndexer(m.dv[t]))
-        self.assertEqual(mysim._derivlist[1], _GetItemIndexer(m.dw[t, 1]))
-        self.assertEqual(mysim._derivlist[2], _GetItemIndexer(m.dw[t, 2]))
+        self.assertEqual(mysim._derivlist[0], _GetAttrIndexer(m.dv[t]))
+        self.assertEqual(mysim._derivlist[1], _GetAttrIndexer(m.dw[t, 1]))
+        self.assertEqual(mysim._derivlist[2], _GetAttrIndexer(m.dw[t, 2]))
         self.assertEqual(len(mysim._rhsdict), 4)
         m.del_component('deqv')
         m.del_component('deqw')
@@ -183,13 +183,13 @@ class TestSimulator(unittest.TestCase):
         mysim = Simulator(m)
 
         self.assertEqual(len(mysim._diffvars), 4)
-        self.assertEqual(mysim._diffvars[0], _GetItemIndexer(m.v[t]))
-        self.assertEqual(mysim._diffvars[1], _GetItemIndexer(m.w[t, 1]))
-        self.assertEqual(mysim._diffvars[2], _GetItemIndexer(m.w[t, 2]))
+        self.assertEqual(mysim._diffvars[0], _GetAttrIndexer(m.v[t]))
+        self.assertEqual(mysim._diffvars[1], _GetAttrIndexer(m.w[t, 1]))
+        self.assertEqual(mysim._diffvars[2], _GetAttrIndexer(m.w[t, 2]))
         self.assertEqual(len(mysim._derivlist), 4)
-        self.assertEqual(mysim._derivlist[0], _GetItemIndexer(m.dv[t]))
-        self.assertEqual(mysim._derivlist[1], _GetItemIndexer(m.dw[t, 1]))
-        self.assertEqual(mysim._derivlist[2], _GetItemIndexer(m.dw[t, 2]))
+        self.assertEqual(mysim._derivlist[0], _GetAttrIndexer(m.dv[t]))
+        self.assertEqual(mysim._derivlist[1], _GetAttrIndexer(m.dw[t, 1]))
+        self.assertEqual(mysim._derivlist[2], _GetAttrIndexer(m.dw[t, 2]))
         self.assertEqual(len(mysim._rhsdict), 4)
         m.del_component('deqv')
         m.del_component('deqw')
@@ -226,13 +226,13 @@ class TestSimulator(unittest.TestCase):
         mysim = Simulator(m)
 
         self.assertEqual(len(mysim._diffvars), 4)
-        self.assertEqual(mysim._diffvars[0], _GetItemIndexer(m.v[t]))
-        self.assertEqual(mysim._diffvars[1], _GetItemIndexer(m.w[t, 1]))
-        self.assertEqual(mysim._diffvars[2], _GetItemIndexer(m.w[t, 2]))
+        self.assertEqual(mysim._diffvars[0], _GetAttrIndexer(m.v[t]))
+        self.assertEqual(mysim._diffvars[1], _GetAttrIndexer(m.w[t, 1]))
+        self.assertEqual(mysim._diffvars[2], _GetAttrIndexer(m.w[t, 2]))
         self.assertEqual(len(mysim._derivlist), 4)
-        self.assertEqual(mysim._derivlist[0], _GetItemIndexer(m.dv[t]))
-        self.assertEqual(mysim._derivlist[1], _GetItemIndexer(m.dw[t, 1]))
-        self.assertEqual(mysim._derivlist[2], _GetItemIndexer(m.dw[t, 2]))
+        self.assertEqual(mysim._derivlist[0], _GetAttrIndexer(m.dv[t]))
+        self.assertEqual(mysim._derivlist[1], _GetAttrIndexer(m.dw[t, 1]))
+        self.assertEqual(mysim._derivlist[2], _GetAttrIndexer(m.dw[t, 2]))
         self.assertEqual(len(mysim._rhsdict), 4)
         m.del_component('deqv')
         m.del_component('deqw')
@@ -250,13 +250,13 @@ class TestSimulator(unittest.TestCase):
         mysim = Simulator(m)
 
         self.assertEqual(len(mysim._diffvars), 4)
-        self.assertEqual(mysim._diffvars[0], _GetItemIndexer(m.v[t]))
-        self.assertEqual(mysim._diffvars[1], _GetItemIndexer(m.w[t, 1]))
-        self.assertEqual(mysim._diffvars[2], _GetItemIndexer(m.w[t, 2]))
+        self.assertEqual(mysim._diffvars[0], _GetAttrIndexer(m.v[t]))
+        self.assertEqual(mysim._diffvars[1], _GetAttrIndexer(m.w[t, 1]))
+        self.assertEqual(mysim._diffvars[2], _GetAttrIndexer(m.w[t, 2]))
         self.assertEqual(len(mysim._derivlist), 4)
-        self.assertEqual(mysim._derivlist[0], _GetItemIndexer(m.dv[t]))
-        self.assertEqual(mysim._derivlist[1], _GetItemIndexer(m.dw[t, 1]))
-        self.assertEqual(mysim._derivlist[2], _GetItemIndexer(m.dw[t, 2]))
+        self.assertEqual(mysim._derivlist[0], _GetAttrIndexer(m.dv[t]))
+        self.assertEqual(mysim._derivlist[1], _GetAttrIndexer(m.dw[t, 1]))
+        self.assertEqual(mysim._derivlist[2], _GetAttrIndexer(m.dw[t, 2]))
         self.assertEqual(len(mysim._rhsdict), 4)
         m.del_component('deqv')
         m.del_component('deqw')
@@ -293,13 +293,13 @@ class TestSimulator(unittest.TestCase):
         mysim = Simulator(m)
 
         self.assertEqual(len(mysim._diffvars), 4)
-        self.assertEqual(mysim._diffvars[0], _GetItemIndexer(m.v[t]))
-        self.assertEqual(mysim._diffvars[1], _GetItemIndexer(m.w[t, 1]))
-        self.assertEqual(mysim._diffvars[2], _GetItemIndexer(m.w[t, 2]))
+        self.assertEqual(mysim._diffvars[0], _GetAttrIndexer(m.v[t]))
+        self.assertEqual(mysim._diffvars[1], _GetAttrIndexer(m.w[t, 1]))
+        self.assertEqual(mysim._diffvars[2], _GetAttrIndexer(m.w[t, 2]))
         self.assertEqual(len(mysim._derivlist), 4)
-        self.assertEqual(mysim._derivlist[0], _GetItemIndexer(m.dv[t]))
-        self.assertEqual(mysim._derivlist[1], _GetItemIndexer(m.dw[t, 1]))
-        self.assertEqual(mysim._derivlist[2], _GetItemIndexer(m.dw[t, 2]))
+        self.assertEqual(mysim._derivlist[0], _GetAttrIndexer(m.dv[t]))
+        self.assertEqual(mysim._derivlist[1], _GetAttrIndexer(m.dw[t, 1]))
+        self.assertEqual(mysim._derivlist[2], _GetAttrIndexer(m.dw[t, 2]))
         self.assertEqual(len(mysim._rhsdict), 4)
         m.del_component('deqv')
         m.del_component('deqw')
@@ -317,13 +317,13 @@ class TestSimulator(unittest.TestCase):
         mysim = Simulator(m)
 
         self.assertEqual(len(mysim._diffvars), 4)
-        self.assertEqual(mysim._diffvars[0], _GetItemIndexer(m.v[t]))
-        self.assertEqual(mysim._diffvars[1], _GetItemIndexer(m.w[t, 1]))
-        self.assertEqual(mysim._diffvars[2], _GetItemIndexer(m.w[t, 2]))
+        self.assertEqual(mysim._diffvars[0], _GetAttrIndexer(m.v[t]))
+        self.assertEqual(mysim._diffvars[1], _GetAttrIndexer(m.w[t, 1]))
+        self.assertEqual(mysim._diffvars[2], _GetAttrIndexer(m.w[t, 2]))
         self.assertEqual(len(mysim._derivlist), 4)
-        self.assertEqual(mysim._derivlist[0], _GetItemIndexer(m.dv[t]))
-        self.assertEqual(mysim._derivlist[1], _GetItemIndexer(m.dw[t, 1]))
-        self.assertEqual(mysim._derivlist[2], _GetItemIndexer(m.dw[t, 2]))
+        self.assertEqual(mysim._derivlist[0], _GetAttrIndexer(m.dv[t]))
+        self.assertEqual(mysim._derivlist[1], _GetAttrIndexer(m.dw[t, 1]))
+        self.assertEqual(mysim._derivlist[2], _GetAttrIndexer(m.dw[t, 2]))
         self.assertEqual(len(mysim._rhsdict), 4)
         m.del_component('deqv')
         m.del_component('deqw')
@@ -360,13 +360,13 @@ class TestSimulator(unittest.TestCase):
         mysim = Simulator(m)
 
         self.assertEqual(len(mysim._diffvars), 4)
-        self.assertEqual(mysim._diffvars[0], _GetItemIndexer(m.v[t]))
-        self.assertEqual(mysim._diffvars[1], _GetItemIndexer(m.w[t, 1]))
-        self.assertEqual(mysim._diffvars[2], _GetItemIndexer(m.w[t, 2]))
+        self.assertEqual(mysim._diffvars[0], _GetAttrIndexer(m.v[t]))
+        self.assertEqual(mysim._diffvars[1], _GetAttrIndexer(m.w[t, 1]))
+        self.assertEqual(mysim._diffvars[2], _GetAttrIndexer(m.w[t, 2]))
         self.assertEqual(len(mysim._derivlist), 4)
-        self.assertEqual(mysim._derivlist[0], _GetItemIndexer(m.dv[t]))
-        self.assertEqual(mysim._derivlist[1], _GetItemIndexer(m.dw[t, 1]))
-        self.assertEqual(mysim._derivlist[2], _GetItemIndexer(m.dw[t, 2]))
+        self.assertEqual(mysim._derivlist[0], _GetAttrIndexer(m.dv[t]))
+        self.assertEqual(mysim._derivlist[1], _GetAttrIndexer(m.dw[t, 1]))
+        self.assertEqual(mysim._derivlist[2], _GetAttrIndexer(m.dw[t, 2]))
         self.assertEqual(len(mysim._rhsdict), 4)
         m.del_component('deqv')
         m.del_component('deqw')
@@ -384,13 +384,13 @@ class TestSimulator(unittest.TestCase):
         mysim = Simulator(m)
 
         self.assertEqual(len(mysim._diffvars), 4)
-        self.assertEqual(mysim._diffvars[0], _GetItemIndexer(m.v[t]))
-        self.assertEqual(mysim._diffvars[1], _GetItemIndexer(m.w[t, 1]))
-        self.assertEqual(mysim._diffvars[2], _GetItemIndexer(m.w[t, 2]))
+        self.assertEqual(mysim._diffvars[0], _GetAttrIndexer(m.v[t]))
+        self.assertEqual(mysim._diffvars[1], _GetAttrIndexer(m.w[t, 1]))
+        self.assertEqual(mysim._diffvars[2], _GetAttrIndexer(m.w[t, 2]))
         self.assertEqual(len(mysim._derivlist), 4)
-        self.assertEqual(mysim._derivlist[0], _GetItemIndexer(m.dv[t]))
-        self.assertEqual(mysim._derivlist[1], _GetItemIndexer(m.dw[t, 1]))
-        self.assertEqual(mysim._derivlist[2], _GetItemIndexer(m.dw[t, 2]))
+        self.assertEqual(mysim._derivlist[0], _GetAttrIndexer(m.dv[t]))
+        self.assertEqual(mysim._derivlist[1], _GetAttrIndexer(m.dw[t, 1]))
+        self.assertEqual(mysim._derivlist[2], _GetAttrIndexer(m.dw[t, 2]))
         self.assertEqual(len(mysim._rhsdict), 4)
         m.del_component('deqv')
         m.del_component('deqw')
@@ -427,13 +427,13 @@ class TestSimulator(unittest.TestCase):
         mysim = Simulator(m)
 
         self.assertEqual(len(mysim._diffvars), 4)
-        self.assertEqual(mysim._diffvars[0], _GetItemIndexer(m.v[t]))
-        self.assertEqual(mysim._diffvars[1], _GetItemIndexer(m.w[t, 1]))
-        self.assertEqual(mysim._diffvars[2], _GetItemIndexer(m.w[t, 2]))
+        self.assertEqual(mysim._diffvars[0], _GetAttrIndexer(m.v[t]))
+        self.assertEqual(mysim._diffvars[1], _GetAttrIndexer(m.w[t, 1]))
+        self.assertEqual(mysim._diffvars[2], _GetAttrIndexer(m.w[t, 2]))
         self.assertEqual(len(mysim._derivlist), 4)
-        self.assertEqual(mysim._derivlist[0], _GetItemIndexer(m.dv[t]))
-        self.assertEqual(mysim._derivlist[1], _GetItemIndexer(m.dw[t, 1]))
-        self.assertEqual(mysim._derivlist[2], _GetItemIndexer(m.dw[t, 2]))
+        self.assertEqual(mysim._derivlist[0], _GetAttrIndexer(m.dv[t]))
+        self.assertEqual(mysim._derivlist[1], _GetAttrIndexer(m.dw[t, 1]))
+        self.assertEqual(mysim._derivlist[2], _GetAttrIndexer(m.dw[t, 2]))
         self.assertEqual(len(mysim._rhsdict), 4)
         m.del_component('deqv')
         m.del_component('deqw')
@@ -465,13 +465,13 @@ class TestSimulator(unittest.TestCase):
         mysim = Simulator(m)
 
         self.assertEqual(len(mysim._diffvars), 4)
-        self.assertEqual(mysim._diffvars[0], _GetItemIndexer(m.v[t]))
-        self.assertEqual(mysim._diffvars[1], _GetItemIndexer(m.w[t, 1]))
-        self.assertEqual(mysim._diffvars[2], _GetItemIndexer(m.w[t, 2]))
+        self.assertEqual(mysim._diffvars[0], _GetAttrIndexer(m.v[t]))
+        self.assertEqual(mysim._diffvars[1], _GetAttrIndexer(m.w[t, 1]))
+        self.assertEqual(mysim._diffvars[2], _GetAttrIndexer(m.w[t, 2]))
         self.assertEqual(len(mysim._derivlist), 4)
-        self.assertEqual(mysim._derivlist[0], _GetItemIndexer(m.dv[t]))
-        self.assertEqual(mysim._derivlist[1], _GetItemIndexer(m.dw[t, 1]))
-        self.assertEqual(mysim._derivlist[2], _GetItemIndexer(m.dw[t, 2]))
+        self.assertEqual(mysim._derivlist[0], _GetAttrIndexer(m.dv[t]))
+        self.assertEqual(mysim._derivlist[1], _GetAttrIndexer(m.dw[t, 1]))
+        self.assertEqual(mysim._derivlist[2], _GetAttrIndexer(m.dw[t, 2]))
         self.assertEqual(len(mysim._rhsdict), 4)
         m.del_component('deqv')
         m.del_component('deqw')
@@ -501,23 +501,23 @@ class TestSimulator(unittest.TestCase):
 
         self.assertIs(mysim._contset, m.t)
         self.assertEqual(len(mysim._diffvars), 2)
-        self.assertEqual(mysim._diffvars[0], _GetItemIndexer(m.v[t]))
-        self.assertEqual(mysim._diffvars[1], _GetItemIndexer(m.w[t]))
+        self.assertEqual(mysim._diffvars[0], _GetAttrIndexer(m.v[t]))
+        self.assertEqual(mysim._diffvars[1], _GetAttrIndexer(m.w[t]))
         self.assertEqual(len(mysim._derivlist), 2)
-        self.assertEqual(mysim._derivlist[0], _GetItemIndexer(m.dv[t]))
-        self.assertEqual(mysim._derivlist[1], _GetItemIndexer(m.dw[t]))
+        self.assertEqual(mysim._derivlist[0], _GetAttrIndexer(m.dv[t]))
+        self.assertEqual(mysim._derivlist[1], _GetAttrIndexer(m.dw[t]))
         self.assertEqual(len(mysim._templatemap), 1)
-        self.assertTrue(_GetItemIndexer(m.v[t]) in mysim._templatemap)
-        self.assertFalse(_GetItemIndexer(m.w[t]) in mysim._templatemap)
+        self.assertTrue(_GetAttrIndexer(m.v[t]) in mysim._templatemap)
+        self.assertFalse(_GetAttrIndexer(m.w[t]) in mysim._templatemap)
         self.assertEqual(len(mysim._rhsdict), 2)
         self.assertTrue(
-            isinstance(mysim._rhsdict[_GetItemIndexer(m.dv[t])], Param))
+            isinstance(mysim._rhsdict[_GetAttrIndexer(m.dv[t])], Param))
         self.assertEqual(
-            mysim._rhsdict[_GetItemIndexer(m.dv[t])].name, "'v[{t}]'")
+            mysim._rhsdict[_GetAttrIndexer(m.dv[t])].name, "'v[{t}]'")
         self.assertTrue(
-            isinstance(mysim._rhsdict[_GetItemIndexer(m.dw[t])], Param))
+            isinstance(mysim._rhsdict[_GetAttrIndexer(m.dw[t])], Param))
         self.assertEqual(
-            mysim._rhsdict[_GetItemIndexer(m.dw[t])].name, "'v[{t}]'")
+            mysim._rhsdict[_GetAttrIndexer(m.dw[t])].name, "'v[{t}]'")
         self.assertEqual(len(mysim._rhsfun(0, [0, 0])), 2)
         self.assertIsNone(mysim._tsim)
         self.assertIsNone(mysim._simsolution)
@@ -559,52 +559,52 @@ class TestSimulator(unittest.TestCase):
 
         self.assertIs(mysim._contset, m.t)
         self.assertEqual(len(mysim._diffvars), 12)
-        self.assertTrue(_GetItemIndexer(m.w1[t, 1]) in mysim._diffvars)
-        self.assertTrue(_GetItemIndexer(m.w1[t, 3]) in mysim._diffvars)
-        self.assertTrue(_GetItemIndexer(m.w2[1, t]) in mysim._diffvars)
-        self.assertTrue(_GetItemIndexer(m.w2[3, t]) in mysim._diffvars)
-        self.assertTrue(_GetItemIndexer(m.w3[0, t, 1]) in mysim._diffvars)
-        self.assertTrue(_GetItemIndexer(m.w3[1, t, 3]) in mysim._diffvars)
+        self.assertTrue(_GetAttrIndexer(m.w1[t, 1]) in mysim._diffvars)
+        self.assertTrue(_GetAttrIndexer(m.w1[t, 3]) in mysim._diffvars)
+        self.assertTrue(_GetAttrIndexer(m.w2[1, t]) in mysim._diffvars)
+        self.assertTrue(_GetAttrIndexer(m.w2[3, t]) in mysim._diffvars)
+        self.assertTrue(_GetAttrIndexer(m.w3[0, t, 1]) in mysim._diffvars)
+        self.assertTrue(_GetAttrIndexer(m.w3[1, t, 3]) in mysim._diffvars)
 
         self.assertEqual(len(mysim._derivlist), 12)
-        self.assertTrue(_GetItemIndexer(m.dw1[t, 1]) in mysim._derivlist)
-        self.assertTrue(_GetItemIndexer(m.dw1[t, 3]) in mysim._derivlist)
-        self.assertTrue(_GetItemIndexer(m.dw2[1, t]) in mysim._derivlist)
-        self.assertTrue(_GetItemIndexer(m.dw2[3, t]) in mysim._derivlist)
-        self.assertTrue(_GetItemIndexer(m.dw3[0, t, 1]) in mysim._derivlist)
-        self.assertTrue(_GetItemIndexer(m.dw3[1, t, 3]) in mysim._derivlist)
+        self.assertTrue(_GetAttrIndexer(m.dw1[t, 1]) in mysim._derivlist)
+        self.assertTrue(_GetAttrIndexer(m.dw1[t, 3]) in mysim._derivlist)
+        self.assertTrue(_GetAttrIndexer(m.dw2[1, t]) in mysim._derivlist)
+        self.assertTrue(_GetAttrIndexer(m.dw2[3, t]) in mysim._derivlist)
+        self.assertTrue(_GetAttrIndexer(m.dw3[0, t, 1]) in mysim._derivlist)
+        self.assertTrue(_GetAttrIndexer(m.dw3[1, t, 3]) in mysim._derivlist)
 
         self.assertEqual(len(mysim._templatemap), 6)
-        self.assertTrue(_GetItemIndexer(m.w1[t, 1]) in mysim._templatemap)
-        self.assertTrue(_GetItemIndexer(m.w1[t, 3]) in mysim._templatemap)
-        self.assertTrue(_GetItemIndexer(m.w2[1, t]) in mysim._templatemap)
-        self.assertTrue(_GetItemIndexer(m.w2[3, t]) in mysim._templatemap)
-        self.assertFalse(_GetItemIndexer(m.w3[0, t, 1]) in mysim._templatemap)
-        self.assertFalse(_GetItemIndexer(m.w3[1, t, 3]) in mysim._templatemap)
+        self.assertTrue(_GetAttrIndexer(m.w1[t, 1]) in mysim._templatemap)
+        self.assertTrue(_GetAttrIndexer(m.w1[t, 3]) in mysim._templatemap)
+        self.assertTrue(_GetAttrIndexer(m.w2[1, t]) in mysim._templatemap)
+        self.assertTrue(_GetAttrIndexer(m.w2[3, t]) in mysim._templatemap)
+        self.assertFalse(_GetAttrIndexer(m.w3[0, t, 1]) in mysim._templatemap)
+        self.assertFalse(_GetAttrIndexer(m.w3[1, t, 3]) in mysim._templatemap)
 
         self.assertEqual(len(mysim._rhsdict), 12)
         self.assertTrue(
-            isinstance(mysim._rhsdict[_GetItemIndexer(m.dw1[t, 1])], Param))
+            isinstance(mysim._rhsdict[_GetAttrIndexer(m.dw1[t, 1])], Param))
         self.assertTrue(
-            isinstance(mysim._rhsdict[_GetItemIndexer(m.dw1[t, 3])], Param))
+            isinstance(mysim._rhsdict[_GetAttrIndexer(m.dw1[t, 3])], Param))
         self.assertTrue(
-            isinstance(mysim._rhsdict[_GetItemIndexer(m.dw2[1, t])], Param))
+            isinstance(mysim._rhsdict[_GetAttrIndexer(m.dw2[1, t])], Param))
         self.assertTrue(
-            isinstance(mysim._rhsdict[_GetItemIndexer(m.dw2[3, t])], Param))
+            isinstance(mysim._rhsdict[_GetAttrIndexer(m.dw2[3, t])], Param))
         self.assertTrue(
-            isinstance(mysim._rhsdict[_GetItemIndexer(m.dw3[0, t, 1])],
+            isinstance(mysim._rhsdict[_GetAttrIndexer(m.dw3[0, t, 1])],
                        EXPR.SumExpression))
         self.assertTrue(
-            isinstance(mysim._rhsdict[_GetItemIndexer(m.dw3[1, t, 3])],
+            isinstance(mysim._rhsdict[_GetAttrIndexer(m.dw3[1, t, 3])],
                        EXPR.SumExpression))
         self.assertEqual(
-            mysim._rhsdict[_GetItemIndexer(m.dw1[t, 1])].name, "'w1[{t},1]'")
+            mysim._rhsdict[_GetAttrIndexer(m.dw1[t, 1])].name, "'w1[{t},1]'")
         self.assertEqual(
-            mysim._rhsdict[_GetItemIndexer(m.dw1[t, 3])].name, "'w1[{t},3]'")
+            mysim._rhsdict[_GetAttrIndexer(m.dw1[t, 3])].name, "'w1[{t},3]'")
         self.assertEqual(
-            mysim._rhsdict[_GetItemIndexer(m.dw2[1, t])].name, "'w2[1,{t}]'")
+            mysim._rhsdict[_GetAttrIndexer(m.dw2[1, t])].name, "'w2[1,{t}]'")
         self.assertEqual(
-            mysim._rhsdict[_GetItemIndexer(m.dw2[3, t])].name, "'w2[3,{t}]'")
+            mysim._rhsdict[_GetAttrIndexer(m.dw2[3, t])].name, "'w2[3,{t}]'")
 
         self.assertEqual(len(mysim._rhsfun(0, [0] * 12)), 12)
         self.assertIsNone(mysim._tsim)
@@ -651,53 +651,53 @@ class TestSimulator(unittest.TestCase):
 
         self.assertIs(mysim._contset, m.t)
         self.assertEqual(len(mysim._diffvars), 8)
-        self.assertTrue(_GetItemIndexer(m.w1[t, 1, 1]) in mysim._diffvars)
-        self.assertTrue(_GetItemIndexer(m.w1[t, 2, 2]) in mysim._diffvars)
-        self.assertTrue(_GetItemIndexer(m.w2[1, 1, t]) in mysim._diffvars)
-        self.assertTrue(_GetItemIndexer(m.w2[2, 2, t]) in mysim._diffvars)
-        self.assertTrue(_GetItemIndexer(m.w3[0, t, 1, 1]) in mysim._diffvars)
-        self.assertTrue(_GetItemIndexer(m.w3[1, t, 2, 2]) in mysim._diffvars)
+        self.assertTrue(_GetAttrIndexer(m.w1[t, 1, 1]) in mysim._diffvars)
+        self.assertTrue(_GetAttrIndexer(m.w1[t, 2, 2]) in mysim._diffvars)
+        self.assertTrue(_GetAttrIndexer(m.w2[1, 1, t]) in mysim._diffvars)
+        self.assertTrue(_GetAttrIndexer(m.w2[2, 2, t]) in mysim._diffvars)
+        self.assertTrue(_GetAttrIndexer(m.w3[0, t, 1, 1]) in mysim._diffvars)
+        self.assertTrue(_GetAttrIndexer(m.w3[1, t, 2, 2]) in mysim._diffvars)
 
         self.assertEqual(len(mysim._derivlist), 8)
-        self.assertTrue(_GetItemIndexer(m.dw1[t, 1, 1]) in mysim._derivlist)
-        self.assertTrue(_GetItemIndexer(m.dw1[t, 2, 2]) in mysim._derivlist)
-        self.assertTrue(_GetItemIndexer(m.dw2[1, 1, t]) in mysim._derivlist)
-        self.assertTrue(_GetItemIndexer(m.dw2[2, 2, t]) in mysim._derivlist)
-        self.assertTrue(_GetItemIndexer(m.dw3[0, t, 1, 1]) in mysim._derivlist)
-        self.assertTrue(_GetItemIndexer(m.dw3[1, t, 2, 2]) in mysim._derivlist)
+        self.assertTrue(_GetAttrIndexer(m.dw1[t, 1, 1]) in mysim._derivlist)
+        self.assertTrue(_GetAttrIndexer(m.dw1[t, 2, 2]) in mysim._derivlist)
+        self.assertTrue(_GetAttrIndexer(m.dw2[1, 1, t]) in mysim._derivlist)
+        self.assertTrue(_GetAttrIndexer(m.dw2[2, 2, t]) in mysim._derivlist)
+        self.assertTrue(_GetAttrIndexer(m.dw3[0, t, 1, 1]) in mysim._derivlist)
+        self.assertTrue(_GetAttrIndexer(m.dw3[1, t, 2, 2]) in mysim._derivlist)
 
         self.assertEqual(len(mysim._templatemap), 4)
-        self.assertTrue(_GetItemIndexer(m.w1[t, 1, 1]) in mysim._templatemap)
-        self.assertTrue(_GetItemIndexer(m.w1[t, 2, 2]) in mysim._templatemap)
-        self.assertTrue(_GetItemIndexer(m.w2[1, 1, t]) in mysim._templatemap)
-        self.assertTrue(_GetItemIndexer(m.w2[2, 2, t]) in mysim._templatemap)
-        self.assertFalse(_GetItemIndexer(m.w3[0, t, 1, 1]) in
+        self.assertTrue(_GetAttrIndexer(m.w1[t, 1, 1]) in mysim._templatemap)
+        self.assertTrue(_GetAttrIndexer(m.w1[t, 2, 2]) in mysim._templatemap)
+        self.assertTrue(_GetAttrIndexer(m.w2[1, 1, t]) in mysim._templatemap)
+        self.assertTrue(_GetAttrIndexer(m.w2[2, 2, t]) in mysim._templatemap)
+        self.assertFalse(_GetAttrIndexer(m.w3[0, t, 1, 1]) in
                          mysim._templatemap)
-        self.assertFalse(_GetItemIndexer(m.w3[1, t, 2, 2]) in
+        self.assertFalse(_GetAttrIndexer(m.w3[1, t, 2, 2]) in
                          mysim._templatemap)
 
         self.assertEqual(len(mysim._rhsdict), 8)
         self.assertTrue(isinstance(
-            mysim._rhsdict[_GetItemIndexer(m.dw1[t, 1, 1])], Param))
+            mysim._rhsdict[_GetAttrIndexer(m.dw1[t, 1, 1])], Param))
         self.assertTrue(isinstance(
-            mysim._rhsdict[_GetItemIndexer(m.dw1[t, 2, 2])], Param))
+            mysim._rhsdict[_GetAttrIndexer(m.dw1[t, 2, 2])], Param))
         self.assertTrue(isinstance(
-            mysim._rhsdict[_GetItemIndexer(m.dw2[1, 1, t])], Param))
+            mysim._rhsdict[_GetAttrIndexer(m.dw2[1, 1, t])], Param))
         self.assertTrue(isinstance(
-            mysim._rhsdict[_GetItemIndexer(m.dw2[2, 2, t])], Param))
+            mysim._rhsdict[_GetAttrIndexer(m.dw2[2, 2, t])], Param))
         self.assertTrue(isinstance(
-            mysim._rhsdict[_GetItemIndexer(m.dw3[0, t, 1, 1])],
+            mysim._rhsdict[_GetAttrIndexer(m.dw3[0, t, 1, 1])],
             EXPR.SumExpression))
         self.assertTrue(isinstance(
-            mysim._rhsdict[_GetItemIndexer(m.dw3[1, t, 2, 2])],
+            mysim._rhsdict[_GetAttrIndexer(m.dw3[1, t, 2, 2])],
             EXPR.SumExpression))
-        self.assertEqual(mysim._rhsdict[_GetItemIndexer(m.dw1[t, 1, 1])].name,
+        self.assertEqual(mysim._rhsdict[_GetAttrIndexer(m.dw1[t, 1, 1])].name,
                          "'w1[{t},1,1]'")
-        self.assertEqual(mysim._rhsdict[_GetItemIndexer(m.dw1[t, 2, 2])].name,
+        self.assertEqual(mysim._rhsdict[_GetAttrIndexer(m.dw1[t, 2, 2])].name,
                          "'w1[{t},2,2]'")
-        self.assertEqual(mysim._rhsdict[_GetItemIndexer(m.dw2[1, 1, t])].name,
+        self.assertEqual(mysim._rhsdict[_GetAttrIndexer(m.dw2[1, 1, t])].name,
                          "'w2[1,1,{t}]'")
-        self.assertEqual(mysim._rhsdict[_GetItemIndexer(m.dw2[2, 2, t])].name,
+        self.assertEqual(mysim._rhsdict[_GetAttrIndexer(m.dw2[2, 2, t])].name,
                          "'w2[2,2,{t}]'")
 
         self.assertEqual(len(mysim._rhsfun(0, [0] * 8)), 8)
@@ -839,7 +839,7 @@ class TestSimulator(unittest.TestCase):
         t = IndexTemplate(m.t)
 
         self.assertEqual(len(mysim._algvars), 1)
-        self.assertTrue(_GetItemIndexer(m.a[t]) in mysim._algvars)
+        self.assertTrue(_GetAttrIndexer(m.a[t]) in mysim._algvars)
         self.assertEqual(len(mysim._alglist), 0)
         m.del_component('con')
 
@@ -869,10 +869,10 @@ class TestSimulator(unittest.TestCase):
         t = IndexTemplate(m.t)
 
         self.assertEqual(len(mysim._algvars), 6)
-        self.assertTrue(_GetItemIndexer(m.a2[t, 1]) in mysim._algvars)
-        self.assertTrue(_GetItemIndexer(m.a2[t, 3]) in mysim._algvars)
-        self.assertTrue(_GetItemIndexer(m.a3[1, t]) in mysim._algvars)
-        self.assertTrue(_GetItemIndexer(m.a3[3, t]) in mysim._algvars)
+        self.assertTrue(_GetAttrIndexer(m.a2[t, 1]) in mysim._algvars)
+        self.assertTrue(_GetAttrIndexer(m.a2[t, 3]) in mysim._algvars)
+        self.assertTrue(_GetAttrIndexer(m.a3[1, t]) in mysim._algvars)
+        self.assertTrue(_GetAttrIndexer(m.a3[3, t]) in mysim._algvars)
         m.del_component('con')
         m.del_component('con_index')
         m.del_component('con2')
@@ -895,7 +895,7 @@ class TestSimulator(unittest.TestCase):
 
         mysim = Simulator(m,package='casadi')
         self.assertEqual(len(mysim._templatemap), 1)
-        self.assertEqual(mysim._diffvars[0], _GetItemIndexer(m.v2[t]))
+        self.assertEqual(mysim._diffvars[0], _GetAttrIndexer(m.v2[t]))
         m.del_component('con')
 
 class TestExpressionCheckers(unittest.TestCase):
