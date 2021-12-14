@@ -221,17 +221,17 @@ class Pyomo2Scipy_Visitor(EXPR.ExpressionReplacementVisitor):
             return False, child
 
         # TODO: Remove if not needed
-        # if type(node) in [EXPR.GetItemExpression, EXPR.GetAttrExpression]:
-        #     ret = substitute_getattr_with_param(node, self.templatemap)
-        #     return True, ret
-        if type(child) is EXPR.GetItemExpression:
-            _id = _GetItemIndexer(child)
-            if _id not in self.templatemap:
-                self.templatemap[_id] = Param(mutable=True)
-                self.templatemap[_id].construct()
-                self.templatemap[_id]._name = "%s[%s]" % (
-                    _id.base.name, ','.join(str(x) for x in _id.args))
-            return False, self.templatemap[_id]
+        if type(node) in [EXPR.GetItemExpression, EXPR.GetAttrExpression]:
+            ret = substitute_getattr_with_param(node, self.templatemap)
+            return False, ret
+        # if type(child) is EXPR.GetItemExpression:
+        #     _id = _GetItemIndexer(child)
+        #     if _id not in self.templatemap:
+        #         self.templatemap[_id] = Param(mutable=True)
+        #         self.templatemap[_id].construct()
+        #         self.templatemap[_id]._name = "%s[%s]" % (
+        #             _id.base.name, ','.join(str(x) for x in _id.args))
+        #     return False, self.templatemap[_id]
 
         return super().beforeChild(node, child, child_idx)
 
@@ -292,8 +292,10 @@ class Substitute_Pyomo2Casadi_Visitor(EXPR.ExpressionReplacementVisitor):
     #         _id = _GetAttrIndexer(node)
     def beforeChild(self, node, child, child_idx):
         """Replace a node if it's a _GetItemExpression."""
-        if type(child) is EXPR.GetItemExpression:
-            _id = _GetItemIndexer(child)
+        # if type(child) is EXPR.GetItemExpression:
+        #     _id = _GetItemIndexer(child)
+        if type(child) in [EXPR.GetItemExpression, EXPR.GetAttrExpression] :
+            _id = _GetAttrIndexer(child)
             if _id not in self.templatemap:
                 name = "%s[%s]" % (
                     _id.base.name, ','.join(str(x) for x in _id.args))
@@ -507,14 +509,12 @@ class Simulator:
             # Case 3: m.p*m.dxdt[t] = RHS
             if args is None:
                 if type(tempexp.arg(0)) is EXPR.ProductExpression or \
-                   type(tempexp.arg(0)) is EXPR.ReciprocalExpression or \
                    type(tempexp.arg(0)) is EXPR.DivisionExpression:
                     args = _check_productexpression(tempexp, 0)
 
             # Case 4: RHS =  m.p*m.dxdt[t]
             if args is None:
                 if type(tempexp.arg(1)) is EXPR.ProductExpression or \
-                   type(tempexp.arg(1)) is EXPR.ReciprocalExpression or \
                    type(tempexp.arg(1)) is EXPR.DivisionExpression:
                     args = _check_productexpression(tempexp, 1)
 
@@ -578,100 +578,6 @@ class Simulator:
                 rhsdict[dvkey] = substitute_pyomo2casadi(RHS, templatemap)
             else:
                 rhsdict[dvkey] = convert_pyomo2scipy(RHS, templatemap)
-            # TODO: Double check if this is needed
-            # for i in noncsidx:
-            #     # Insert the index template and call the rule to
-            #     # create a templated expression
-            #     if i is None:
-            #         tempexp = conrule(m, cstemplate)
-            #     else:
-            #         if not isinstance(i, tuple):
-            #             i = (i,)
-            #         tempidx = i[0:csidx] + (cstemplate,) + i[csidx:]
-            #         tempexp = conrule(m, tempidx)
-
-            #     # Check to make sure it's an EqualityExpression
-            #     if not type(tempexp) is EXPR.EqualityExpression:
-            #         continue
-
-            #     # Check to make sure it's a differential equation with
-            #     # separable RHS
-            #     args = None
-            #     # Case 1: m.dxdt[t] = RHS
-            #     if type(tempexp.arg(0)) is EXPR.GetItemExpression:
-            #         args = _check_getitemexpression(tempexp, 0)
-
-            #     # Case 2: RHS = m.dxdt[t]
-            #     if args is None:
-            #         if type(tempexp.arg(1)) is EXPR.GetItemExpression:
-            #             args = _check_getitemexpression(tempexp, 1)
-
-            #     # Case 3: m.p*m.dxdt[t] = RHS
-            #     if args is None:
-            #         if type(tempexp.arg(0)) is EXPR.ProductExpression or \
-            #            type(tempexp.arg(0)) is EXPR.DivisionExpression:
-            #             args = _check_productexpression(tempexp, 0)
-
-            #     # Case 4: RHS =  m.p*m.dxdt[t]
-            #     if args is None:
-            #         if type(tempexp.arg(1)) is EXPR.ProductExpression or \
-            #            type(tempexp.arg(1)) is EXPR.DivisionExpression:
-            #             args = _check_productexpression(tempexp, 1)
-
-            #     # Case 5: m.dxdt[t] + sum(ELSE) = RHS
-            #     # or CONSTANT + m.dxdt[t] = RHS
-            #     if args is None:
-            #         if type(tempexp.arg(0)) is EXPR.SumExpression:
-            #             args = _check_viewsumexpression(tempexp, 0)
-
-            #     # Case 6: RHS = m.dxdt[t] + sum(ELSE)
-            #     if args is None:
-            #         if type(tempexp.arg(1)) is EXPR.SumExpression:
-            #             args = _check_viewsumexpression(tempexp, 1)
-
-            #     # Case 7: RHS = m.p*m.dxdt[t] + CONSTANT
-            #     # This case will be caught by Case 6 if p is immutable. If
-            #     # p is mutable then this case will not be detected as a
-            #     # separable differential equation
-
-            #     # Case 8: - dxdt[t] = RHS
-            #     if args is None:
-            #         if type(tempexp.arg(0)) is EXPR.NegationExpression:
-            #             args = _check_negationexpression(tempexp, 0)
-
-            #     # Case 9: RHS = - dxdt[t]
-            #     if args is None:
-            #         if type(tempexp.arg(1)) is EXPR.NegationExpression:
-            #             args = _check_negationexpression(tempexp, 1)
-
-            #     # At this point if args is not None then args[0] contains
-            #     # the _GetItemExpression for the DerivativeVar and args[1]
-            #     # contains the RHS expression. If args is None then the
-            #     # constraint is considered an algebraic equation
-            #     if args is None:
-            #         # Constraint is an algebraic equation or unsupported
-            #         # differential equation
-            #         if self._intpackage == 'scipy':
-            #             raise DAE_Error(
-            #                 "Model contains an algebraic equation or "
-            #                 "unrecognized differential equation. Constraint "
-            #                 "'%s' cannot be simulated using Scipy. If you are "
-            #                 "trying to simulate a DAE model you must use "
-            #                 "CasADi as the integration package."
-            #                 % str(con.name))
-            #         tempexp = tempexp.arg(0) - tempexp.arg(1)
-            #         algexp = substitute_pyomo2casadi(tempexp, templatemap)
-            #         alglist.append(algexp)
-            #         continue
-
-            #     # Add the differential equation to rhsdict and derivlist
-            #     dv = args[0]
-            #     RHS = args[1]
-            #     dvkey = _GetItemIndexer(dv)
-            #     if dvkey in rhsdict.keys():
-            #         raise DAE_Error(
-            #             "Found multiple RHS expressions for the "
-            #             "DerivativeVar %s" % str(dvkey))
 
 
         # Check to see if we found a RHS for every DerivativeVar in
