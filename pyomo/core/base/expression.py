@@ -272,6 +272,8 @@ class Expression(IndexedComponent):
         # initialize={} (to require explicit setitem before a getitem),
         # or initialize=NOTSET (to allow getitem before setitem)
         self._rule = Initializer(_init, arg_not_specified=NOTSET)
+        self.rule = self._rule
+
 
         kwds.setdefault('ctype', Expression)
         IndexedComponent.__init__(self, *args, **kwds)
@@ -361,7 +363,7 @@ class Expression(IndexedComponent):
                 % (self.name, str(data)))
 
         try:
-            # We do not (currently) accept data for constructing Constraints
+            # We do not (currently) accept data for constructing Expressions
             assert data is None
             self._construct_from_rule_using_setitem()
         finally:

@@ -6,17 +6,18 @@
 #  the U.S. Government retains certain rights in this software.
 #  This software is distributed under the BSD License.
 #  _________________________________________________________________________
-from pyomo.core.base import Constraint, Param, value, Suffix, Block
+from pyomo.core.base import Constraint, Param, value, Suffix, Block, Expression
 
 from pyomo.dae import ContinuousSet, DerivativeVar
 from pyomo.dae.diffvar import DAE_Error
 from pyomo.dae.flatten import flatten_dae_components
 
 from pyomo.core.expr import current as EXPR
-from pyomo.core.expr.numvalue import native_numeric_types
+from pyomo.core.expr.numvalue import native_numeric_types, nonpyomo_leaf_types
 from pyomo.core.expr.template_expr import (
-    IndexTemplate, substitute_getattr_with_param, _GetAttrIndexer, ExpressionTemplateContext,
-    templatize_constraint, resolve_template)
+    IndexTemplate, substitute_getattr_with_param, _GetAttrIndexer,
+    ExpressionTemplateContext, templatize_constraint, resolve_template,
+    templatize_expression)
 
 import logging
 
@@ -63,6 +64,7 @@ def _finalize_casadi(casadi, available):
             'ceil': casadi.ceil,
             'floor': casadi.floor,
         })
+        nonpyomo_leaf_types.add(casadi.SX)
 casadi, casadi_available = attempt_import('casadi', callback=_finalize_casadi)
 
 
@@ -201,6 +203,45 @@ def _check_viewsumexpression(expr, i):
 
     return None
 
+class replace_templatedExpressions_Visitor(EXPR.ExpressionReplacementVisitor):
+    """
+    Expression walker that replaces instances of _GetItemExpression
+    and _GetAttrExpression with TODO.
+    """
+
+    def __init__(self, substitute):
+        # Note because we are creating a "nonPyomo" expression tree, we
+        # want to remove all Expression nodes (as opposed to replacing
+        # them in place)
+        super().__init__(substitute=substitute,
+                         descend_into_named_expressions=True,
+                         remove_named_expressions=True)
+
+    def beforeChild(self, node, child, child_idx):
+
+        if type(child) is IndexTemplate:
+            return False, child
+
+        if type(child) in [EXPR.GetItemExpression, EXPR.GetAttrExpression]:
+            _id = _GetAttrIndexer(child)
+            if _id in self.substitute:
+                return False, self.substitute[_id]
+
+        return super().beforeChild(node, child, child_idx)
+
+
+def replace_templatedExpressions(expr, substitution_map):
+    """Substitute _GetItem nodes in an expression tree.
+
+    Args:
+        substitution_map: dictionary mapping _GetAttrIndexer objects to
+            replacement objects or expression
+
+    Returns:
+        a new expression tree with all substitutions done
+    """
+    visitor = replace_templatedExpressions_Visitor(substitution_map)
+    return visitor.walk_expression(expr)
 
 class Pyomo2Scipy_Visitor(EXPR.ExpressionReplacementVisitor):
     """
@@ -448,10 +489,23 @@ class Simulator:
         # Loop over constraints to find differential equations with separable
         # RHS. Must find a RHS for every derivative var otherwise ERROR. Build
         # dictionary of DerivativeVar:RHS equation.
-        
+
+        # Identify all of the contset-indexed Expressions
+        no_t_exp, has_t_exp = flatten_dae_components(m, contset, Expression)
+
         # Identify all of the contset-indexed constraints
         no_t_con, has_t_con = flatten_dae_components(m, contset, Constraint)
         context = ExpressionTemplateContext()
+
+        # exp_replacement_map = {}
+        # for e in has_t_exp:
+        #     tempexp = templatize_expression(e, cstemplate, context)
+        #     tempexp = tempexp[0]
+        #     exp_replacement_map[id(e[cstemplate])] = tempexp
+        #
+
+
+        
 
         # TODO: if no_t_con is not empty maybe raise a warning that
         # these constraints will be ignored
@@ -795,6 +849,11 @@ class Simulator:
                                 "'varying_inputs' keyword argument. "
                                 "Please refer to the simulator documentation "
                                 "for more information.")
+
+            if not switchpts:
+                raise DAE_Error("Varying input values were provided but "
+                                "Suffix keys don't match the algebraic "
+                                "variables identified by the simulator.")
 
             # Get the set of unique points
             switchpts = list(set(switchpts))

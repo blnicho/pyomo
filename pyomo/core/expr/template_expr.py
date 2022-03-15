@@ -484,7 +484,7 @@ class IndexTemplate(NumericValue):
 
     def set_value(self, values=_NotSpecified, lock=None):
         # It might be nice to check if the value is valid for the base
-        # set, but things are tricky when the base set is not dimention
+        # set, but things are tricky when the base set is not dimension
         # 1.  So, for the time being, we will just "trust" the user.
         # After all, the actual Set will raise exceptions if the value
         # is not present.
@@ -751,7 +751,6 @@ def substitute_getattr_with_param(expr, _map):
             _id.base.name, ','.join(str(x) for x in _id.args) )
     return _map[_id]
 
-
 def substitute_template_with_value(expr):
     """A simple substituter to expand expression for current template
 
@@ -933,6 +932,12 @@ def templatize_constraint(constraint, indices=None, context=None):
     walker = FinalizeComponentTemplates(context)
     expr = walker.walk_expression(conData.expr)
     return expr, indices
+
+def templatize_expression(expression, indices=None, context=None):
+    # FIXME: This is a hack to get around weirdness in the Initializer logic
+    #  for Expression components
+    expression.rule = None
+    return templatize_constraint(expression, indices, context)
 
 
 class ComponentTemplateMap(object):
