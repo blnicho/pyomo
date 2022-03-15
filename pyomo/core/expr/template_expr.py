@@ -979,9 +979,22 @@ class FinalizeComponentTemplates(StreamBasedExpressionVisitor):
         self.context = context
 
     def beforeChild(self, node, child, child_idx):
+        # HACK: FIXME: These imports are here to resolve potential
+        # circular imports between the expression system and the
+        # modeling AML
+        from pyomo.core import Block, Expression
         # Skip native types
         if child.__class__ in native_types:
             return False, child
+        if child.__class__ is GetItemExpression:
+            e = child.arg(0)
+            if isinstance(e, Expression):
+                return False, templatize_rule(
+                    e.parent_block(), e.rule, child.args[1:], self.context)[0]
+            elif isinstance(e, Block):
+                return False, templatize_rule(
+                    e._ComponentDataClass(e), e._rule, child.args[1:],
+                    self.context)[0]
         # We will descend into all expressions...
         if child.is_expression_type():
             return True, None
@@ -1034,4 +1047,6 @@ class FinalizeComponentTemplates(StreamBasedExpressionVisitor):
         if len(data) == node.nargs() and all(
                 a is b for a,b in zip(node.args, data)):
             return node
+        if node.__class__ is GetAttrExpression and not data[0].is_expression_type():
+            return getattr(data[0], data[1])
         return node.create_node_with_local_data( tuple(data) )
