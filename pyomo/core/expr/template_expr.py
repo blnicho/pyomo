@@ -1027,7 +1027,7 @@ class FinalizeComponentTemplates(StreamBasedExpressionVisitor):
                       self.context.component_template_map.get_index(obj) ))
             else:
                 if component.is_indexed():
-                    path.append((component.local_name, obj.index()))
+                    path.append((component.local_name, (obj.index(),)))
                 else:
                     path.append((component.local_name,))
             if obj is root:
