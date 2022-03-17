@@ -986,15 +986,26 @@ class FinalizeComponentTemplates(StreamBasedExpressionVisitor):
         # Skip native types
         if child.__class__ in native_types:
             return False, child
+        # HACK: FIXME:  this behavior was  added for the  DAE simulator.
+        # We   should   probably  make   this   an   option  passed   to
+        # templatize_*()
         if child.__class__ is GetItemExpression:
             e = child.arg(0)
             if isinstance(e, Expression):
                 return False, templatize_rule(
                     e.parent_block(), e.rule, child.args[1:], self.context)[0]
             elif isinstance(e, Block):
-                return False, templatize_rule(
-                    e._ComponentDataClass(e), e._rule, child.args[1:],
-                    self.context)[0]
+                blk = e._ComponentDataClass(e)
+                ans = templatize_rule(
+                    blk, e._rule, child.args[1:], self.context)[0]
+                # Ideally, block rules populate the block we handed it.
+                # However, some ignore the block we hand them and return
+                # a completely new Block.  If that happens, use the one
+                # returned by the rule - otherwise return the block we
+                # handed the rule
+                if ans is None:
+                    ans = blk
+                return False, ans
         # We will descend into all expressions...
         if child.is_expression_type():
             return True, None
