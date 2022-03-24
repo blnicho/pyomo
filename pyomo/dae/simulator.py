@@ -17,7 +17,7 @@ from pyomo.core.expr.numvalue import native_numeric_types, nonpyomo_leaf_types
 from pyomo.core.expr.template_expr import (
     IndexTemplate, substitute_getattr_with_param, _GetAttrIndexer,
     ExpressionTemplateContext, templatize_constraint, resolve_template,
-    templatize_expression)
+    )
 
 import logging
 
@@ -203,45 +203,6 @@ def _check_viewsumexpression(expr, i):
 
     return None
 
-class replace_templatedExpressions_Visitor(EXPR.ExpressionReplacementVisitor):
-    """
-    Expression walker that replaces instances of _GetItemExpression
-    and _GetAttrExpression with TODO.
-    """
-
-    def __init__(self, substitute):
-        # Note because we are creating a "nonPyomo" expression tree, we
-        # want to remove all Expression nodes (as opposed to replacing
-        # them in place)
-        super().__init__(substitute=substitute,
-                         descend_into_named_expressions=True,
-                         remove_named_expressions=True)
-
-    def beforeChild(self, node, child, child_idx):
-
-        if type(child) is IndexTemplate:
-            return False, child
-
-        if type(child) in [EXPR.GetItemExpression, EXPR.GetAttrExpression]:
-            _id = _GetAttrIndexer(child)
-            if _id in self.substitute:
-                return False, self.substitute[_id]
-
-        return super().beforeChild(node, child, child_idx)
-
-
-def replace_templatedExpressions(expr, substitution_map):
-    """Substitute _GetItem nodes in an expression tree.
-
-    Args:
-        substitution_map: dictionary mapping _GetAttrIndexer objects to
-            replacement objects or expression
-
-    Returns:
-        a new expression tree with all substitutions done
-    """
-    visitor = replace_templatedExpressions_Visitor(substitution_map)
-    return visitor.walk_expression(expr)
 
 class Pyomo2Scipy_Visitor(EXPR.ExpressionReplacementVisitor):
     """
@@ -349,6 +310,7 @@ class Convert_Pyomo2Casadi_Visitor(EXPR.ExpressionValueVisitor):
 
         Return True if the node is not expanded.
         """
+
         if node.__class__ in native_numeric_types:
             return True, node
 
@@ -497,16 +459,6 @@ class Simulator:
         no_t_con, has_t_con = flatten_dae_components(m, contset, Constraint)
         context = ExpressionTemplateContext()
 
-        # exp_replacement_map = {}
-        # for e in has_t_exp:
-        #     tempexp = templatize_expression(e, cstemplate, context)
-        #     tempexp = tempexp[0]
-        #     exp_replacement_map[id(e[cstemplate])] = tempexp
-        #
-
-
-        
-
         # TODO: if no_t_con is not empty maybe raise a warning that
         # these constraints will be ignored
 
@@ -518,8 +470,10 @@ class Simulator:
             # on string comparison
             if '_disc_eq' in str(con.referent):
                 continue
+            print('Templatizing: ', con.referent)
             tempexp = templatize_constraint(con, cstemplate, context)
             tempexp = tempexp[0]
+            print(tempexp.to_string(verbose=True))
                 
             # Check to make sure it's an EqualityExpression
             if not type(tempexp) is EXPR.EqualityExpression:
@@ -959,6 +913,8 @@ class Simulator:
 
     def _simulate_with_casadi_no_inputs(self, initcon, tsim, integrator,
                                         integrator_options):
+        import pdb
+        pdb.set_trace()
         # Old way (10 times faster, but can't incorporate time
         # varying parameters/controls)
         xalltemp = [self._templatemap[i] for i in self._diffvars]

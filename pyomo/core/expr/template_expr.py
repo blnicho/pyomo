@@ -903,10 +903,14 @@ def templatize_rule(block, rule, indices, context):
                 "Explicit iteration (for loops) over Sets is not supported "
                 "by template expressions.  Encountered loop over %s"
                 % (context.cache[-1][0]._set,))
+
+    # FIXME: This code is unreachable, do we need it?
     return None, indices
 
 
 def templatize_constraint(constraint, indices=None, context=None):
+    # import pdb
+    # pdb.set_trace()
     if context is None:
         context = ExpressionTemplateContext()
     if indices is None:
@@ -929,6 +933,7 @@ def templatize_constraint(constraint, indices=None, context=None):
     conData = constraint._data.__getitem__(
         indices, context.component_template_map
     )
+    #print("Before finalizing: ", conData.expr)
     walker = FinalizeComponentTemplates(context)
     expr = walker.walk_expression(conData.expr)
     return expr, indices
@@ -938,7 +943,6 @@ def templatize_expression(expression, indices=None, context=None):
     #  for Expression components
     expression.rule = None
     return templatize_constraint(expression, indices, context)
-
 
 class ComponentTemplateMap(object):
     def __init__(self):
@@ -982,16 +986,21 @@ class FinalizeComponentTemplates(StreamBasedExpressionVisitor):
         # HACK: FIXME: These imports are here to resolve potential
         # circular imports between the expression system and the
         # modeling AML
-        from pyomo.core import Block, Expression
+        from pyomo.core import Block, Expression, Var
         # Skip native types
+
+        import pdb
+        # pdb.set_trace()
         if child.__class__ in native_types:
             return False, child
         # HACK: FIXME:  this behavior was  added for the  DAE simulator.
         # We   should   probably  make   this   an   option  passed   to
         # templatize_*()
-        if child.__class__ is GetItemExpression:
+        if child.__class__ in [GetItemExpression,]:
             e = child.arg(0)
             if isinstance(e, Expression):
+                pdb.set_trace()
+                print('Found Expression ', child)
                 return False, templatize_rule(
                     e.parent_block(), e.rule, child.args[1:], self.context)[0]
             elif isinstance(e, Block):
@@ -1055,9 +1064,21 @@ class FinalizeComponentTemplates(StreamBasedExpressionVisitor):
         return self.beforeChild(None, expr, None)
 
     def exitNode(self, node, data):
+        import pdb
+
         if len(data) == node.nargs() and all(
                 a is b for a,b in zip(node.args, data)):
             return node
         if node.__class__ is GetAttrExpression and not data[0].is_expression_type():
-            return getattr(data[0], data[1])
+            # FIXME: This doesn't quite work, if the GetAttrExpression is
+            # getting a Var or mutable Param then just return the
+            # GetAttrExpression. We really only want to sub out Expressions
+            pdb.set_trace()
+            temp = getattr(data[0], data[1])
+            from pyomo.core import Expression
+            if isinstance(temp, Expression):
+                return temp
+                    #templatize_expression(temp)
+            else:
+                return node
         return node.create_node_with_local_data( tuple(data) )
