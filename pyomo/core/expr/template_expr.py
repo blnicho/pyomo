@@ -392,6 +392,10 @@ class IndexTemplate(NumericValue):
                 raise ValueError("Cannot generate positional IndexTemplate "
                                  "for non-dimensioned (jagged) Set '%s'"
                                  % (set_.name,))
+            if not isinstance(setDim, int):
+                raise ValueError("Cannot generate positional IndexTemplate "
+                                 "for Set '%s' with unknown dimensionality"
+                                 % (set_.name,))
             if index >= setDim:
                 raise ValueError("Cannot generate positional IndexTemplate "
                                  "for Set '%s': %s >= dimen (%s)"
