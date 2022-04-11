@@ -1005,14 +1005,9 @@ class FinalizeComponentTemplates(StreamBasedExpressionVisitor):
         # HACK: FIXME: this behavior was added for the DAE simulator.
         # We should probably make this an option passed to
         # templatize_*()
-        if child.__class__ in [GetItemExpression,]:
+        if child.__class__ is GetItemExpression:
             e = child.arg(0)
-            if isinstance(e, Expression):
-                # pdb.set_trace()
-                # print('Found Expression ', child)
-                return False, templatize_rule(
-                    e.parent_block(), e.rule, child.args[1:], self.context)[0]
-            elif isinstance(e, Block):
+            if isinstance(e, Block):
                 blk = self.context.component_template_map.get(e, child.args[1:])
                 return False, blk
         # We will descend into all expressions...
@@ -1073,8 +1068,8 @@ class FinalizeComponentTemplates(StreamBasedExpressionVisitor):
             # GetAttrExpression. We really only want to sub out Expressions
             temp = getattr(data[0], data[1])
             if isinstance(temp, Expression):
-                return temp
-                    #templatize_expression(temp)
+                walker = FinalizeComponentTemplates(self.context)
+                return walker.walk_expression(temp.expr)
             else:
                 return node
         return node.create_node_with_local_data( tuple(data) )
