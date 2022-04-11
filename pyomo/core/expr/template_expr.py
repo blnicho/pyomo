@@ -898,6 +898,7 @@ def templatize_rule(block, rule, indices, context):
                 logger.error("The following exception was raised when "
                              "templatizing the rule '%s':\n\t%s"
                              % (rule.__name__, internal_error[1]))
+                internal_error = None
             raise TemplateExpressionError(
                 None,
                 "Explicit iteration (for loops) over Sets is not supported "
