@@ -982,25 +982,27 @@ class FinalizeComponentTemplates(StreamBasedExpressionVisitor):
         super(FinalizeComponentTemplates, self).__init__()
         self.context = context
 
-    def beforeChild(self, node, child, child_idx):
         # HACK: FIXME: These imports are here to resolve potential
         # circular imports between the expression system and the
         # modeling AML
+        global Block, Expression, Var
         from pyomo.core import Block, Expression, Var
-        # Skip native types
 
-        import pdb
+    def beforeChild(self, node, child, child_idx):
+        # import pdb
         # pdb.set_trace()
+
+        # Skip native types
         if child.__class__ in native_types:
             return False, child
-        # HACK: FIXME:  this behavior was  added for the  DAE simulator.
-        # We   should   probably  make   this   an   option  passed   to
+        # HACK: FIXME: this behavior was added for the DAE simulator.
+        # We should probably make this an option passed to
         # templatize_*()
         if child.__class__ in [GetItemExpression,]:
             e = child.arg(0)
             if isinstance(e, Expression):
-                pdb.set_trace()
-                print('Found Expression ', child)
+                # pdb.set_trace()
+                # print('Found Expression ', child)
                 return False, templatize_rule(
                     e.parent_block(), e.rule, child.args[1:], self.context)[0]
             elif isinstance(e, Block):
@@ -1064,7 +1066,7 @@ class FinalizeComponentTemplates(StreamBasedExpressionVisitor):
         return self.beforeChild(None, expr, None)
 
     def exitNode(self, node, data):
-        import pdb
+        # import pdb
 
         if len(data) == node.nargs() and all(
                 a is b for a,b in zip(node.args, data)):
@@ -1073,7 +1075,7 @@ class FinalizeComponentTemplates(StreamBasedExpressionVisitor):
             # FIXME: This doesn't quite work, if the GetAttrExpression is
             # getting a Var or mutable Param then just return the
             # GetAttrExpression. We really only want to sub out Expressions
-            pdb.set_trace()
+            # pdb.set_trace()
             temp = getattr(data[0], data[1])
             from pyomo.core import Expression
             if isinstance(temp, Expression):
