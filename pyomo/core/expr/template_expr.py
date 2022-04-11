@@ -910,8 +910,6 @@ def templatize_rule(block, rule, indices, context):
 
 
 def templatize_constraint(constraint, indices=None, context=None):
-    # import pdb
-    # pdb.set_trace()
     if context is None:
         context = ExpressionTemplateContext()
     if indices is None:
@@ -934,7 +932,6 @@ def templatize_constraint(constraint, indices=None, context=None):
     conData = constraint._data.__getitem__(
         indices, context.component_template_map
     )
-    #print("Before finalizing: ", conData.expr)
     walker = FinalizeComponentTemplates(context)
     expr = walker.walk_expression(conData.expr)
     return expr, indices
@@ -998,9 +995,6 @@ class FinalizeComponentTemplates(StreamBasedExpressionVisitor):
         from pyomo.core import Block, Expression, Var
 
     def beforeChild(self, node, child, child_idx):
-        # import pdb
-        # pdb.set_trace()
-
         # Skip native types
         if child.__class__ in native_types:
             return False, child
@@ -1066,8 +1060,6 @@ class FinalizeComponentTemplates(StreamBasedExpressionVisitor):
         return self.beforeChild(None, expr, None)
 
     def exitNode(self, node, data):
-        # import pdb
-
         if len(data) == node.nargs() and all(
                 a is b for a,b in zip(node.args, data)):
             return node
@@ -1075,9 +1067,7 @@ class FinalizeComponentTemplates(StreamBasedExpressionVisitor):
             # FIXME: This doesn't quite work, if the GetAttrExpression is
             # getting a Var or mutable Param then just return the
             # GetAttrExpression. We really only want to sub out Expressions
-            # pdb.set_trace()
             temp = getattr(data[0], data[1])
-            from pyomo.core import Expression
             if isinstance(temp, Expression):
                 return temp
                     #templatize_expression(temp)
