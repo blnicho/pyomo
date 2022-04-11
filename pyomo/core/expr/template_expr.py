@@ -973,6 +973,10 @@ class ComponentTemplateMap(object):
         _parent_component = obj._component
         del component[hashableIdx]
         obj._component = _parent_component
+        if idx.__class__ is tuple and len(idx) == 1:
+            obj._index = idx[0]
+        else:
+            obj._index = idx
         return obj
 
     def get_index(self, obj):
@@ -1011,17 +1015,8 @@ class FinalizeComponentTemplates(StreamBasedExpressionVisitor):
                 return False, templatize_rule(
                     e.parent_block(), e.rule, child.args[1:], self.context)[0]
             elif isinstance(e, Block):
-                blk = e._ComponentDataClass(e)
-                ans = templatize_rule(
-                    blk, e._rule, child.args[1:], self.context)[0]
-                # Ideally, block rules populate the block we handed it.
-                # However, some ignore the block we hand them and return
-                # a completely new Block.  If that happens, use the one
-                # returned by the rule - otherwise return the block we
-                # handed the rule
-                if ans is None:
-                    ans = blk
-                return False, ans
+                blk = self.context.component_template_map.get(e, child.args[1:])
+                return False, blk
         # We will descend into all expressions...
         if child.is_expression_type():
             return True, None
