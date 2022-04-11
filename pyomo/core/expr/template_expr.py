@@ -942,8 +942,12 @@ def templatize_constraint(constraint, indices=None, context=None):
 def templatize_expression(expression, indices=None, context=None):
     # FIXME: This is a hack to get around weirdness in the Initializer logic
     #  for Expression components
+    saved_rule = expression.rule
     expression.rule = None
-    return templatize_constraint(expression, indices, context)
+    try:
+        return templatize_constraint(expression, indices, context)
+    finally:
+        expression.rule = saved_rule
 
 class ComponentTemplateMap(object):
     def __init__(self):
