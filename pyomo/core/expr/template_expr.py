@@ -392,6 +392,10 @@ class IndexTemplate(NumericValue):
                 raise ValueError("Cannot generate positional IndexTemplate "
                                  "for non-dimensioned (jagged) Set '%s'"
                                  % (set_.name,))
+            if not isinstance(setDim, int):
+                raise ValueError("Cannot generate positional IndexTemplate "
+                                 "for Set '%s' with unknown dimensionality"
+                                 % (set_.name,))
             if index >= setDim:
                 raise ValueError("Cannot generate positional IndexTemplate "
                                  "for Set '%s': %s >= dimen (%s)"
@@ -898,6 +902,7 @@ def templatize_rule(block, rule, indices, context):
                 logger.error("The following exception was raised when "
                              "templatizing the rule '%s':\n\t%s"
                              % (rule.__name__, internal_error[1]))
+                internal_error = None
             raise TemplateExpressionError(
                 None,
                 "Explicit iteration (for loops) over Sets is not supported "
@@ -909,8 +914,6 @@ def templatize_rule(block, rule, indices, context):
 
 
 def templatize_constraint(constraint, indices=None, context=None):
-    # import pdb
-    # pdb.set_trace()
     if context is None:
         context = ExpressionTemplateContext()
     if indices is None:
@@ -933,7 +936,6 @@ def templatize_constraint(constraint, indices=None, context=None):
     conData = constraint._data.__getitem__(
         indices, context.component_template_map
     )
-    #print("Before finalizing: ", conData.expr)
     walker = FinalizeComponentTemplates(context)
     expr = walker.walk_expression(conData.expr)
     return expr, indices
@@ -941,8 +943,12 @@ def templatize_constraint(constraint, indices=None, context=None):
 def templatize_expression(expression, indices=None, context=None):
     # FIXME: This is a hack to get around weirdness in the Initializer logic
     #  for Expression components
+    saved_rule = expression.rule
     expression.rule = None
-    return templatize_constraint(expression, indices, context)
+    try:
+        return templatize_constraint(expression, indices, context)
+    finally:
+        expression.rule = saved_rule
 
 class ComponentTemplateMap(object):
     def __init__(self):
@@ -968,6 +974,10 @@ class ComponentTemplateMap(object):
         _parent_component = obj._component
         del component[hashableIdx]
         obj._component = _parent_component
+        if idx.__class__ is tuple and len(idx) == 1:
+            obj._index = idx[0]
+        else:
+            obj._index = idx
         return obj
 
     def get_index(self, obj):
@@ -982,39 +992,24 @@ class FinalizeComponentTemplates(StreamBasedExpressionVisitor):
         super(FinalizeComponentTemplates, self).__init__()
         self.context = context
 
-    def beforeChild(self, node, child, child_idx):
         # HACK: FIXME: These imports are here to resolve potential
         # circular imports between the expression system and the
         # modeling AML
+        global Block, Expression, Var
         from pyomo.core import Block, Expression, Var
-        # Skip native types
 
-        import pdb
-        # pdb.set_trace()
+    def beforeChild(self, node, child, child_idx):
+        # Skip native types
         if child.__class__ in native_types:
             return False, child
-        # HACK: FIXME:  this behavior was  added for the  DAE simulator.
-        # We   should   probably  make   this   an   option  passed   to
+        # HACK: FIXME: this behavior was added for the DAE simulator.
+        # We should probably make this an option passed to
         # templatize_*()
-        if child.__class__ in [GetItemExpression,]:
+        if child.__class__ is GetItemExpression:
             e = child.arg(0)
-            if isinstance(e, Expression):
-                pdb.set_trace()
-                print('Found Expression ', child)
-                return False, templatize_rule(
-                    e.parent_block(), e.rule, child.args[1:], self.context)[0]
-            elif isinstance(e, Block):
-                blk = e._ComponentDataClass(e)
-                ans = templatize_rule(
-                    blk, e._rule, child.args[1:], self.context)[0]
-                # Ideally, block rules populate the block we handed it.
-                # However, some ignore the block we hand them and return
-                # a completely new Block.  If that happens, use the one
-                # returned by the rule - otherwise return the block we
-                # handed the rule
-                if ans is None:
-                    ans = blk
-                return False, ans
+            if isinstance(e, Block):
+                blk = self.context.component_template_map.get(e, child.args[1:])
+                return False, blk
         # We will descend into all expressions...
         if child.is_expression_type():
             return True, None
@@ -1064,8 +1059,6 @@ class FinalizeComponentTemplates(StreamBasedExpressionVisitor):
         return self.beforeChild(None, expr, None)
 
     def exitNode(self, node, data):
-        import pdb
-
         if len(data) == node.nargs() and all(
                 a is b for a,b in zip(node.args, data)):
             return node
@@ -1073,12 +1066,10 @@ class FinalizeComponentTemplates(StreamBasedExpressionVisitor):
             # FIXME: This doesn't quite work, if the GetAttrExpression is
             # getting a Var or mutable Param then just return the
             # GetAttrExpression. We really only want to sub out Expressions
-            pdb.set_trace()
             temp = getattr(data[0], data[1])
-            from pyomo.core import Expression
             if isinstance(temp, Expression):
-                return temp
-                    #templatize_expression(temp)
+                walker = FinalizeComponentTemplates(self.context)
+                return walker.walk_expression(temp.expr)
             else:
                 return node
         return node.create_node_with_local_data( tuple(data) )

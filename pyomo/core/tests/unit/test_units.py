@@ -411,7 +411,7 @@ class TestPyomoUnit(unittest.TestCase):
                                  uc, EXPR.Expr_ifExpression)
 
         # test EXPR.IndexTemplate and GetItemExpression
-        model.S = Set()
+        model.S = Set(dimen=1)
         i = EXPR.IndexTemplate(model.S)
         j = EXPR.IndexTemplate(model.S)
         self._get_check_units_ok(i, uc, None, EXPR.IndexTemplate)
