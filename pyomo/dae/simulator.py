@@ -470,10 +470,10 @@ class Simulator:
             # on string comparison
             if '_disc_eq' in str(con.referent):
                 continue
-            print('Templatizing: ', con.referent)
+            #print('Templatizing: ', con.referent)
             tempexp = templatize_constraint(con, cstemplate, context)
             tempexp = tempexp[0]
-            print(tempexp.to_string(verbose=True))
+            #print(tempexp.to_string(verbose=True))
                 
             # Check to make sure it's an EqualityExpression
             if not type(tempexp) is EXPR.EqualityExpression:
@@ -914,7 +914,7 @@ class Simulator:
     def _simulate_with_casadi_no_inputs(self, initcon, tsim, integrator,
                                         integrator_options):
         import pdb
-        pdb.set_trace()
+        #pdb.set_trace()
         # Old way (10 times faster, but can't incorporate time
         # varying parameters/controls)
         xalltemp = [self._templatemap[i] for i in self._diffvars]
@@ -925,7 +925,29 @@ class Simulator:
         odeall = casadi.vertcat(*odealltemp)
         dae = {'x': xall, 'ode': odeall}
 
+        # initcon = []
+        # for v in self._diffvars:
+        #     for idx, i in enumerate(v._args):
+        #         if type(i) is IndexTemplate:
+        #             break
+        #     initpoint = self._contset.first()
+        #     vidx = tuple(v._args[0:idx]) + (initpoint,) + \
+        #            tuple(v._args[idx + 1:])
+        #     # This line will raise an error if no value was set
+        #     initcon.append(value(v._base[vidx]))
+
+        alginitcon = []
         if len(self._algvars) != 0:
+            for v in self._algvars:
+                for idx, i in enumerate(v._args):
+                    if type(i) is IndexTemplate:
+                        break
+                initpoint = self._contset.first()
+                vidx = tuple(v._args[0:idx]) + (initpoint,) + \
+                       tuple(v._args[idx + 1:])
+                # This line will raise an error if no value was set
+                alginitcon.append(value(v._base[vidx]))
+
             zalltemp = [self._templatemap[i] for i in self._simalgvars]
             zall = casadi.vertcat(*zalltemp)
 
@@ -937,7 +959,7 @@ class Simulator:
         integrator_options['grid'] = tsim
         integrator_options['output_t0'] = True
         F = casadi.integrator('F', integrator, dae, integrator_options)
-        sol = F(x0=initcon)
+        sol = F(x0=initcon, z0=alginitcon)
         profile = sol['xf'].full().T
 
         if len(self._algvars) != 0:
