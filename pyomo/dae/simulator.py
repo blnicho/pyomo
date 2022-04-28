@@ -936,17 +936,19 @@ class Simulator:
         #     # This line will raise an error if no value was set
         #     initcon.append(value(v._base[vidx]))
 
+        cstemplate = self._cstemplate
+        initpoint = self._contset.first()
+        cstemplate.set_value(initpoint)
+
         alginitcon = []
         if len(self._algvars) != 0:
             for v in self._algvars:
                 for idx, i in enumerate(v._args):
                     if type(i) is IndexTemplate:
                         break
-                initpoint = self._contset.first()
-                vidx = tuple(v._args[0:idx]) + (initpoint,) + \
-                       tuple(v._args[idx + 1:])
+
                 # This line will raise an error if no value was set
-                alginitcon.append(value(v._base[vidx]))
+                alginitcon.append(value(resolve_template(v.expr)))
 
             zalltemp = [self._templatemap[i] for i in self._simalgvars]
             zall = casadi.vertcat(*zalltemp)

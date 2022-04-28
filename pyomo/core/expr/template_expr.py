@@ -1010,6 +1010,9 @@ class FinalizeComponentTemplates(StreamBasedExpressionVisitor):
             if isinstance(e, Block):
                 blk = self.context.component_template_map.get(e, child.args[1:])
                 return False, blk
+            elif isinstance(e, Expression):
+                return False, templatize_rule(
+                    e.parent_block(), e.rule, child.args[1:], self.context)[0]
         # We will descend into all expressions...
         if child.is_expression_type():
             return True, None
