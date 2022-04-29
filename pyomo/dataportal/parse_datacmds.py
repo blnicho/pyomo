@@ -19,8 +19,8 @@ import ply.lex as lex
 import ply.yacc as yacc
 from inspect import getfile, currentframe
 
+from pyomo.common.indexing import flatten_tuple
 from pyomo.common.fileutils import this_file
-from pyomo.core.base.util import flatten_tuple
 
 _re_number = r'[-+]?(?:[0-9]+\.?[0-9]*|\.[0-9]+)(?:[eE][-+]?[0-9]+)?'
 

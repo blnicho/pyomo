@@ -13,8 +13,8 @@ import pickle
 import pyomo.common.unittest as unittest
 from pyomo.common.config import ConfigValue, ConfigList, ConfigDict
 from pyomo.common.dependencies import pandas as pd, pandas_available
+from pyomo.common.indexing import flatten_tuple
 
-from pyomo.core.base.util import flatten_tuple
 from pyomo.core.base.initializer import (
     Initializer, ConstantInitializer, ItemInitializer, ScalarCallInitializer,
     IndexedCallInitializer, CountedCallInitializer, CountedCallGenerator,
