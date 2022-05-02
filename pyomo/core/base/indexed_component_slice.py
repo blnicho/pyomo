@@ -268,7 +268,7 @@ class IndexedComponent_slice(object):
                     tmp[level[1][3]] = Ellipsis
                 ans += self._getitem_args_to_str([tmp[i] for i in sorted(tmp)])
             elif level[0] & IndexedComponent_slice.ITEM_MASK:
-                if isinstance(level[1], Sequence):
+                if isinstance(level[1], Sequence) and not isinstance(level[1], str):
                     tmp = list(level[1])
                 else:
                     tmp = [level[1]]
