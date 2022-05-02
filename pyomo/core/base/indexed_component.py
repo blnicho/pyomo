@@ -32,8 +32,9 @@ from collections.abc import Sequence
 
 logger = logging.getLogger('pyomo.core')
 
-#TODO: deprecate importing normalize_index from this module
-from pyomo.common.indexing import normalize_index
+#TODO: deprecate importing normalize_index from this module in examples,
+#      documentation, and pyomo (point to pyomo.common.indexing)
+from pyomo.common.indexing import normalize_index, flatten_tuple
 
 class _NotFound(object):
     pass
@@ -498,6 +499,10 @@ You can silence this warning by one of three ways:
             from pyomo.core.expr import current as EXPR
             if index.__class__ is EXPR.GetItemExpression:
                 return index
+            for idx in flatten_tuple(index):
+                if (idx.__class__ is EXPR.IndexTemplate and
+                    idx.context is not None):
+                    return idx.context.component_template_map.get(self, index)
             validated_index = self._validate_index(index)
             if validated_index is not index:
                 index = validated_index
