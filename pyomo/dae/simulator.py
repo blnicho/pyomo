@@ -219,6 +219,9 @@ class Pyomo2Scipy_Visitor(EXPR.ExpressionReplacementVisitor):
         self.templatemap = templatemap
 
     def beforeChild(self, node, child, child_idx):
+        # Remember the child so we know if it changed
+        self._original_child[id(node)] = child
+
         if type(child) is IndexTemplate:
             return False, child(exception=False)
 
@@ -280,6 +283,9 @@ class Substitute_Pyomo2Casadi_Visitor(EXPR.ExpressionReplacementVisitor):
 
     def beforeChild(self, node, child, child_idx):
         """Replace a node if it's a _GetItemExpression or GetAttrExpression."""
+        # Remember the child so we know if it changed
+        self._original_child[id(node)] = child
+
         if type(child) in [EXPR.GetItemExpression, EXPR.GetAttrExpression] :
             _id = _GetAttrIndexer(child)
             if _id not in self.templatemap:
