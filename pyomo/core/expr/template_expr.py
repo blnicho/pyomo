@@ -108,6 +108,13 @@ class GetItemExpression(ExpressionBase):
         return ans
 
     def _apply_operation(self, result):
+        comp = result[0]
+        for idx in result[1:]:
+            # TODO: this will not catch situations where the
+            # IndexTemplate is in an expression (e.g., "t-1")
+            if idx.__class__ is IndexTemplate and idx.context is not None:
+                return idx.context.component_template_map.get(
+                    comp, result[1:])
         obj = result[0].__getitem__( tuple(result[1:]) )
         if obj.__class__ in nonpyomo_leaf_types:
             return obj
