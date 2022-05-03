@@ -21,7 +21,7 @@ from pyomo.core.expr.numvalue import (
     NumericValue, native_types, nonpyomo_leaf_types,
     as_numeric, value,
 )
-from pyomo.core.expr.numeric_expr import ExpressionBase, SumExpression
+from pyomo.core.expr.numeric_expr import ExpressionBase, SumExpression, _balanced_parens
 from pyomo.core.expr.visitor import (
     ExpressionReplacementVisitor, StreamBasedExpressionVisitor
 )
