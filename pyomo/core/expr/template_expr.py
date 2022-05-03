@@ -165,6 +165,14 @@ class GetAttrExpression(ExpressionBase):
     def __len__(self):
         return len(value(self))
 
+    def __call__(self, *args, **kwargs):
+        # TODO: it is probably not ideal to use the exception=False flag in
+        # this way (to suppress the normal TemplateExpressionError).
+        ans = super().__call__(exception=False)
+        if hasattr(ans, '__call__'):
+            return ans(*args, **kwargs)
+        return ans
+
     def getname(self, *args, **kwds):
         return 'getattr'
 
