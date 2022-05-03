@@ -320,7 +320,13 @@ class TemplateSumExpression(ExpressionBase):
         self._local_args_ = args
 
     def create_node_with_local_data(self, args):
-        return self.__class__(args, self._iters)
+        if len(args) == 1:
+            return self.__class__(args, self._iters)
+        else:
+            # The TemplateSumExpression was expanded (maybe by a
+            # walker).  Convert it to a regular SumExpression
+            assert len(args) == self.nargs()
+            return sum(args)
 
     def __getstate__(self):
         state = super(TemplateSumExpression, self).__getstate__()
