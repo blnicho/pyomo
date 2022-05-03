@@ -640,6 +640,7 @@ class ExpressionReplacementVisitor(StreamBasedExpressionVisitor):
         self.substitute = substitute
         self.enter_named_expr = descend_into_named_expressions
         self.rm_named_expr = remove_named_expressions
+        self._original_child = {}
 
         kwds = {}
         if hasattr(self, 'visiting_potential_leaf'):
@@ -650,6 +651,7 @@ class ExpressionReplacementVisitor(StreamBasedExpressionVisitor):
                 "(note to implementers: the sense of the bool return value "
                 "has been inverted).", version='6.2')
             def beforeChild(node, child, child_idx):
+                self._original_child[id(node)] = child
                 is_leaf, ans = self.visiting_potential_leaf(child)
                 return not is_leaf, ans
             kwds['beforeChild'] = beforeChild
@@ -669,6 +671,9 @@ class ExpressionReplacementVisitor(StreamBasedExpressionVisitor):
         return True, expr
 
     def beforeChild(self, node, child, child_idx):
+        # Remember the child so we know if it changed
+        self._original_child[id(node)] = child
+        #
         if id(child) in self.substitute:
             return False, self.substitute[id(child)]
         elif type(child) in native_types:
@@ -681,16 +686,19 @@ class ExpressionReplacementVisitor(StreamBasedExpressionVisitor):
         return True, None
 
     def enterNode(self, node):
-        args = list(node.args)
-        return args, [False, args]
+        self._original_child[id(node)] = None
+        return node.args, [False, []]
 
     def acceptChildResult(self, node, data, child_result, child_idx):
-        if data[1][child_idx] is not child_result:
-            data[1][child_idx] = child_result
+        if self._original_child[id(node)] is not child_result:
             data[0] = True
+        data[1].append(child_result)
         return data
 
     def exitNode(self, node, data):
+        # Clean up the map of original child nodes
+        del self._original_child[id(node)]
+        #
         if node.is_named_expression_type():
             assert len(data[1]) == 1
             if self.rm_named_expr:
