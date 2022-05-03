@@ -474,7 +474,7 @@ class IndexTemplate(NumericValue):
                 raise TemplateExpressionError(
                     self, "Evaluating uninitialized IndexTemplate (%s)"
                     % (self,))
-            return None
+            return self
         else:
             return self._value
 
