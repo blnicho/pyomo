@@ -15,6 +15,7 @@ import sys
 import builtins
 
 from pyomo.common.collections import HashableTuple, ComponentMap
+from pyomo.common.modeling import NOTSET
 from pyomo.core.expr.expr_errors import TemplateExpressionError
 from pyomo.core.expr.numvalue import (
     NumericValue, native_types, nonpyomo_leaf_types,
@@ -26,8 +27,6 @@ from pyomo.core.expr.visitor import (
 )
 
 logger = logging.getLogger(__name__)
-
-class _NotSpecified(object): pass
 
 class GetItemExpression(ExpressionBase):
     """
@@ -400,7 +399,7 @@ class IndexTemplate(NumericValue):
                 raise ValueError("Cannot generate positional IndexTemplate "
                                  "for Set '%s': %s >= dimen (%s)"
                                  % (set_.name,index,setDim))
-        self._value = _NotSpecified
+        self._value = NOTSET
         self._index = index
         self._id = id_
         self._lock = None
@@ -440,7 +439,7 @@ class IndexTemplate(NumericValue):
         """
         Return the value of this object.
         """
-        if self._value is _NotSpecified:
+        if self._value is NOTSET:
             if exception:
                 raise TemplateExpressionError(
                     self, "Evaluating uninitialized IndexTemplate (%s)"
@@ -486,7 +485,7 @@ class IndexTemplate(NumericValue):
             _set_name += "(%s)" % (self._index,)
         return "{"+_set_name+"}"
 
-    def set_value(self, values=_NotSpecified, lock=None):
+    def set_value(self, values=NOTSET, lock=None):
         # It might be nice to check if the value is valid for the base
         # set, but things are tricky when the base set is not dimension
         # 1.  So, for the time being, we will just "trust" the user.
@@ -496,8 +495,8 @@ class IndexTemplate(NumericValue):
             raise RuntimeError(
                 "The TemplateIndex %s is currently locked by %s and "
                 "cannot be set through lock %s" % (self, self._lock, lock))
-        if values is _NotSpecified:
-            self._value = _NotSpecified
+        if values is NOTSET:
+            self._value = NOTSET
             return
         if type(values) is not tuple:
             values = (values,)

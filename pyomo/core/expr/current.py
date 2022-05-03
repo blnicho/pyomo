@@ -105,7 +105,7 @@ if _mode == Mode.pyomo5_trees:
                                               AtLeastExpression,
                                               special_boolean_atom_types)
     from pyomo.core.expr.template_expr import (TemplateExpressionError,
-                                               _NotSpecified, GetItemExpression,
+                                               GetItemExpression,
                                                GetAttrExpression,
                                                _TemplateSumExpression_argList,
                                                TemplateSumExpression,
