@@ -431,7 +431,8 @@ class Simulator:
         contset = temp[0]
 
         # Create a index template for the continuous set
-        cstemplate = IndexTemplate(contset)
+        context = ExpressionTemplateContext()
+        cstemplate = IndexTemplate(contset, id_='t', context=context)
 
         # Ensure that there is at least one derivative in the model
         derivs = list(m.component_objects(DerivativeVar))
@@ -457,7 +458,6 @@ class Simulator:
 
         # Identify all of the contset-indexed constraints
         no_t_con, has_t_con = flatten_dae_components(m, contset, Constraint)
-        context = ExpressionTemplateContext()
 
         # TODO: if no_t_con is not empty maybe raise a warning that
         # these constraints will be ignored
