@@ -377,15 +377,17 @@ class IndexTemplate(NumericValue):
         Otherwise, it specifies the index into the Set specifying a
         "coordinate set" within the Set
 
-    id_: int
-        If not None, the identifier for the IndexTemplate (used, e.g.,
-        for constructing the string representation of the IndexTemplate)
+    context: ExpressionTemplateContext
+        The current templatization context (used for generating template
+        identifiers used by the string representation of the IndexTemplate)
+
     """
 
-    __slots__ = ('_set', '_value', '_index', '_id', '_lock')
+    __slots__ = ('_set', '_value', '_index', '_id', '_lock', 'context')
 
-    def __init__(self, set_, index=0, id_=None):
+    def __init__(self, set_, index=0, id_=NOTSET, context=None):
         self._set = set_
+        self.context = context
         if index is not None:
             setDim = set_.dimen
             if setDim is None:
@@ -402,7 +404,13 @@ class IndexTemplate(NumericValue):
                                  % (set_.name,index,setDim))
         self._value = NOTSET
         self._index = index
-        self._id = id_
+        if id_ is NOTSET:
+            if context is None:
+                self._id = None
+            else:
+                self._id = context.next_id()
+        else:
+            self._id = id_
         self._lock = None
 
     def __getstate__(self):
@@ -794,10 +802,10 @@ class _set_iterator_template_generator(object):
         _set = self._set
         d = _set.dimen
         if d is None or type(d) is not int:
-            idx = (IndexTemplate(_set, None, context.next_id()),)
+            idx = (IndexTemplate(_set, None, context=context),)
         else:
             idx = tuple(
-                IndexTemplate(_set, i, context.next_id()) for i in range(d)
+                IndexTemplate(_set, i, context=context) for i in range(d)
             )
         context.cache.append(idx)
         if len(idx) == 1:
@@ -865,8 +873,10 @@ class ExpressionTemplateContext(object):
         return indices
 
 
-def templatize_rule(block, rule, indices, context):
+def templatize_rule(block, rule, indices, context=None):
     import pyomo.core.base.set
+    if context is None:
+        context = ExpressionTemplateContext()
     internal_error = None
     _old_iters = (
             pyomo.core.base.set._FiniteSetMixin.__iter__,
