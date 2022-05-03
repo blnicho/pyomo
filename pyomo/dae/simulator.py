@@ -220,7 +220,7 @@ class Pyomo2Scipy_Visitor(EXPR.ExpressionReplacementVisitor):
 
     def beforeChild(self, node, child, child_idx):
         if type(child) is IndexTemplate:
-            return False, child
+            return False, child(exception=False)
 
         if type(child) in [EXPR.GetItemExpression, EXPR.GetAttrExpression]:
             ret = substitute_getattr_with_param(child, self.templatemap)
@@ -289,7 +289,7 @@ class Substitute_Pyomo2Casadi_Visitor(EXPR.ExpressionReplacementVisitor):
             return False, self.templatemap[_id]
 
         elif type(child) is IndexTemplate:
-            return False, child
+            return False, child(exception=False)
 
         return super().beforeChild(node, child, child_idx)
 
