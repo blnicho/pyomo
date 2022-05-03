@@ -16,6 +16,7 @@ import builtins
 
 from pyomo.common.collections import HashableTuple, ComponentMap
 from pyomo.common.modeling import NOTSET
+from pyomo.core.pyomoobject import PyomoObject
 from pyomo.core.expr.expr_errors import TemplateExpressionError
 from pyomo.core.expr.numvalue import (
     NumericValue, native_types, nonpyomo_leaf_types,
@@ -111,9 +112,9 @@ class GetItemExpression(ExpressionBase):
         if obj.__class__ in nonpyomo_leaf_types:
             return obj
         # Note that because it is possible (likely) that the result
-        # could be an IndexedComponent_slice object, must test "is
-        # True", as the slice will return a list of values.
-        if obj.is_numeric_type() is True:
+        # could be an IndexedComponent_slice object, must make sure this
+        # is a PyomoObject before retrieving the attribute.
+        if isinstance(obj, PyomoObject) and obj.is_numeric_type():
             obj = value(obj)
         return obj
 
@@ -171,9 +172,9 @@ class GetAttrExpression(ExpressionBase):
         if obj.__class__ in nonpyomo_leaf_types:
             return obj
         # Note that because it is possible (likely) that the result
-        # could be an IndexedComponent_slice object, must test "is
-        # True", as the slice will return a list of values.
-        if obj.is_numeric_type() is True:
+        # could be an IndexedComponent_slice object, must make sure this
+        # is a PyomoObject before retrieving the attribute.
+        if isinstance(obj, PyomoObject) and obj.is_numeric_type():
             obj = value(obj)
         return obj
 
