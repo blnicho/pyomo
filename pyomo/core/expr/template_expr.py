@@ -368,7 +368,7 @@ class IndexTemplate(NumericValue):
 
     Parameters
     ----------
-    _set: Set
+    set_: Set
         The Set from which this IndexTemplate can take values
 
     index: int or None
@@ -646,7 +646,7 @@ class _GetAttrIndexer(object):
 
     def __init__(self, expr):
         # store the original expr to make it easy to resolve the template later
-        self._expr = expr  
+        self._expr = expr
 
         self._args = []
         _hash = []
@@ -710,7 +710,6 @@ class _GetAttrIndexer(object):
             return False
 
     def __str__(self):
-
         return str(self._expr)
 
 
