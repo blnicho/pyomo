@@ -681,9 +681,9 @@ class _GetAttrIndexer(object):
         self._args = []
         _hash = []
         current_e = expr
-        while type(current_e.arg(0)) in [GetItemExpression, GetAttrExpression]:
+        while type(current_e.arg(0)) in {GetItemExpression, GetAttrExpression}:
             for x in current_e.args[1:]:
-                val = value(current_e.arg(1))
+                val = value(x)
                 self._args.append(val)
                 _hash.append(val)
             current_e = current_e.arg(0)
