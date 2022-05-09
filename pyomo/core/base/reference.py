@@ -21,8 +21,8 @@ from pyomo.core.base.indexed_component import (
 from pyomo.core.base.indexed_component_slice import (
     IndexedComponent_slice, _IndexedComponent_slice_iter
 )
-from pyomo.core.base.util import flatten_tuple
 from pyomo.common.deprecation import deprecated
+from pyomo.common.indexing import flatten_tuple
 
 _NotSpecified = object()
 

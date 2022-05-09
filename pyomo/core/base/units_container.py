@@ -715,6 +715,33 @@ class PintUnitExtractionVisitor(EXPR.StreamBasedExpressionVisitor):
 
         return child_units[1]
 
+    def _get_unit_for_getitem(self, node, child_units):
+        """Return (and test) the units corresponding to an GetItmeExpression
+        node in the expression tree.  The returned units should come
+        from the first child, and all remaining child units should be
+        dimensionless.
+
+        Parameters
+        ----------
+        node : Pyomo expression node
+            The parent node of the children
+
+        child_units : list
+           This is a list of pint units (one for each of the children)
+
+        Returns
+        -------
+        : pint unit
+
+        """
+        for pint_unit in child_units[1:]:
+            if not self._equivalent_to_dimensionless(pint_unit):
+                raise UnitsError(
+                    'Expected no units or dimensionless units in {}, '
+                    'but found {}.'.format(str(node), str(pint_unit)))
+
+        return child_units[0]
+
     def _get_dimensionless_with_radians_child(self, node, child_units):
         """
         Return (and test) the units corresponding to a trig function expression node
@@ -814,7 +841,7 @@ class PintUnitExtractionVisitor(EXPR.StreamBasedExpressionVisitor):
         EXPR.NPV_UnaryFunctionExpression: _get_unit_for_unary_function,
         EXPR.Expr_ifExpression: _get_unit_for_expr_if,
         IndexTemplate: _get_dimensionless_no_children,
-        EXPR.GetItemExpression: _get_dimensionless_with_dimensionless_children,
+        EXPR.GetItemExpression: _get_unit_for_getitem,
         EXPR.ExternalFunctionExpression: _get_units_ExternalFunction,
         EXPR.NPV_ExternalFunctionExpression: _get_units_ExternalFunction,
         EXPR.LinearExpression: _get_unit_for_equivalent_children,

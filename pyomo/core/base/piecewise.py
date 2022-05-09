@@ -47,6 +47,7 @@ import enum
 
 from pyomo.common.log import is_debug_set
 from pyomo.common.deprecation import deprecation_warning
+from pyomo.common.indexing import flatten_tuple
 from pyomo.common.timing import ConstructionTimer
 from pyomo.core.base.block import Block, _BlockData
 from pyomo.core.base.component import ModelComponentFactory
@@ -55,7 +56,6 @@ from pyomo.core.base.sos import SOSConstraint
 from pyomo.core.base.var import Var, _VarData, IndexedVar
 from pyomo.core.base.set_types import PositiveReals, NonNegativeReals, Binary
 from pyomo.core.base.numvalue import value
-from pyomo.core.base.util import flatten_tuple
 
 logger = logging.getLogger('pyomo.core')
 class PWRepn(str, enum.Enum):

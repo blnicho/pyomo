@@ -219,8 +219,11 @@ class Pyomo2Scipy_Visitor(EXPR.ExpressionReplacementVisitor):
         self.templatemap = templatemap
 
     def beforeChild(self, node, child, child_idx):
+        # Remember the child so we know if it changed
+        self._original_child[id(node)] = child
+
         if type(child) is IndexTemplate:
-            return False, child
+            return False, child(exception=False)
 
         if type(child) in [EXPR.GetItemExpression, EXPR.GetAttrExpression]:
             ret = substitute_getattr_with_param(child, self.templatemap)
@@ -280,6 +283,9 @@ class Substitute_Pyomo2Casadi_Visitor(EXPR.ExpressionReplacementVisitor):
 
     def beforeChild(self, node, child, child_idx):
         """Replace a node if it's a _GetItemExpression or GetAttrExpression."""
+        # Remember the child so we know if it changed
+        self._original_child[id(node)] = child
+
         if type(child) in [EXPR.GetItemExpression, EXPR.GetAttrExpression] :
             _id = _GetAttrIndexer(child)
             if _id not in self.templatemap:
@@ -289,7 +295,7 @@ class Substitute_Pyomo2Casadi_Visitor(EXPR.ExpressionReplacementVisitor):
             return False, self.templatemap[_id]
 
         elif type(child) is IndexTemplate:
-            return False, child
+            return False, child(exception=False)
 
         return super().beforeChild(node, child, child_idx)
 
@@ -431,7 +437,8 @@ class Simulator:
         contset = temp[0]
 
         # Create a index template for the continuous set
-        cstemplate = IndexTemplate(contset)
+        context = ExpressionTemplateContext()
+        cstemplate = IndexTemplate(contset, id_='t', context=context)
 
         # Ensure that there is at least one derivative in the model
         derivs = list(m.component_objects(DerivativeVar))
@@ -457,7 +464,6 @@ class Simulator:
 
         # Identify all of the contset-indexed constraints
         no_t_con, has_t_con = flatten_dae_components(m, contset, Constraint)
-        context = ExpressionTemplateContext()
 
         # TODO: if no_t_con is not empty maybe raise a warning that
         # these constraints will be ignored

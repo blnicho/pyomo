@@ -37,7 +37,7 @@ currdir = dirname(abspath(__file__))+os.sep
 import pyomo.common.unittest as unittest
 
 import pyomo.core.base
-from pyomo.core.base.util import flatten_tuple
+from pyomo.common.indexing import flatten_tuple
 from pyomo.environ import (Set, SetOf, RangeSet, Param, ConcreteModel, 
                            AbstractModel, Expression, EmptySet,
                            NonPositiveIntegers,

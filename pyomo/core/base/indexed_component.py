@@ -16,7 +16,7 @@ import sys
 import textwrap
 
 from pyomo.core.expr.expr_errors import TemplateExpressionError
-from pyomo.core.expr.numvalue import native_types, NumericNDArray
+from pyomo.core.expr.numvalue import NumericNDArray
 from pyomo.core.base.indexed_component_slice import IndexedComponent_slice
 from pyomo.core.base.initializer import Initializer
 from pyomo.core.base.component import Component, ActiveComponent
@@ -32,62 +32,9 @@ from collections.abc import Sequence
 
 logger = logging.getLogger('pyomo.core')
 
-sequence_types = {tuple, list}
-def normalize_index(x):
-    """Normalize a component index.
-
-    This flattens nested sequences into a single tuple.  There is a
-    "global" flag (normalize_index.flatten) that will turn off index
-    flattening across Pyomo.
-
-    Scalar values will be returned unchanged.  Tuples with a single
-    value will be unpacked and returned as a single value.
-
-    Returns
-    -------
-    scalar or tuple
-
-    """
-    if x.__class__ in native_types:
-        return x
-    elif x.__class__ in sequence_types:
-        # Note that casting a tuple to a tuple is cheap (no copy, no
-        # new object)
-        x = tuple(x)
-    else:
-        x = (x,)
-
-    x_len = len(x)
-    i = 0
-    while i < x_len:
-        _xi_class = x[i].__class__
-        if _xi_class in native_types:
-            i += 1
-        elif _xi_class in sequence_types:
-            x_len += len(x[i]) - 1
-            # Note that casting a tuple to a tuple is cheap (no copy, no
-            # new object)
-            x = x[:i] + tuple(x[i]) + x[i + 1:]
-        elif issubclass(_xi_class, Sequence):
-            if issubclass(_xi_class, str):
-                # This is very difficult to get to: it would require a
-                # user creating a custom derived string type
-                native_types.add(_xi_class)
-                i += 1
-            else:
-                sequence_types.add(_xi_class)
-                x_len += len(x[i]) - 1
-                x = x[:i] + tuple(x[i]) + x[i + 1:]
-        else:
-            i += 1
-
-    if x_len == 1:
-        return x[0]
-    return x
-
-# Pyomo will normalize indices by default
-normalize_index.flatten = True
-
+#TODO: deprecate importing normalize_index from this module in examples,
+#      documentation, and pyomo (point to pyomo.common.indexing)
+from pyomo.common.indexing import normalize_index, flatten_tuple
 
 class _NotFound(object):
     pass
@@ -552,6 +499,10 @@ You can silence this warning by one of three ways:
             from pyomo.core.expr import current as EXPR
             if index.__class__ is EXPR.GetItemExpression:
                 return index
+            for idx in flatten_tuple(index):
+                if (idx.__class__ is EXPR.IndexTemplate and
+                    idx.context is not None):
+                    return idx.context.component_template_map.get(self, index)
             validated_index = self._validate_index(index)
             if validated_index is not index:
                 index = validated_index
@@ -865,11 +816,11 @@ the value() function.""" % ( self.name, i ))
                     #
                     raise RuntimeError(
 """Error retrieving the value of an indexed item %s:
-index %s is a fixed but not constant value.  This is likely not what you
+index %s (%s) is a fixed but not constant value.  This is likely not what you
 meant to do, as if you later change the fixed value of the object this
 lookup will not change.  If you understand the implications of using
 fixed but not constant values, you can get the current value using the
-value() function.""" % ( self.name, i ))
+value() function.""" % ( self.name, i, val ))
                 #
                 # There are other ways we could get an exception such as
                 # evaluating a Param / Var that is not initialized.

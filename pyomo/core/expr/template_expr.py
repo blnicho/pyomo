@@ -15,19 +15,19 @@ import sys
 import builtins
 
 from pyomo.common.collections import HashableTuple, ComponentMap
+from pyomo.common.modeling import NOTSET
+from pyomo.core.pyomoobject import PyomoObject
 from pyomo.core.expr.expr_errors import TemplateExpressionError
 from pyomo.core.expr.numvalue import (
     NumericValue, native_types, nonpyomo_leaf_types,
     as_numeric, value,
 )
-from pyomo.core.expr.numeric_expr import ExpressionBase, SumExpression
+from pyomo.core.expr.numeric_expr import ExpressionBase, SumExpression, _balanced_parens
 from pyomo.core.expr.visitor import (
     ExpressionReplacementVisitor, StreamBasedExpressionVisitor
 )
 
 logger = logging.getLogger(__name__)
-
-class _NotSpecified(object): pass
 
 class GetItemExpression(ExpressionBase):
     """
@@ -108,13 +108,20 @@ class GetItemExpression(ExpressionBase):
         return ans
 
     def _apply_operation(self, result):
+        comp = result[0]
+        for idx in result[1:]:
+            # TODO: this will not catch situations where the
+            # IndexTemplate is in an expression (e.g., "t-1")
+            if idx.__class__ is IndexTemplate and idx.context is not None:
+                return idx.context.component_template_map.get(
+                    comp, result[1:])
         obj = result[0].__getitem__( tuple(result[1:]) )
         if obj.__class__ in nonpyomo_leaf_types:
             return obj
         # Note that because it is possible (likely) that the result
-        # could be an IndexedComponent_slice object, must test "is
-        # True", as the slice will return a list of values.
-        if obj.is_numeric_type() is True:
+        # could be an IndexedComponent_slice object, must make sure this
+        # is a PyomoObject before retrieving the attribute.
+        if isinstance(obj, PyomoObject) and obj.is_numeric_type():
             obj = value(obj)
         return obj
 
@@ -158,6 +165,14 @@ class GetAttrExpression(ExpressionBase):
     def __len__(self):
         return len(value(self))
 
+    def __call__(self, *args, **kwargs):
+        # TODO: it is probably not ideal to use the exception=False flag in
+        # this way (to suppress the normal TemplateExpressionError).
+        ans = super().__call__(exception=False)
+        if hasattr(ans, '__call__'):
+            return ans(*args, **kwargs)
+        return ans
+
     def getname(self, *args, **kwds):
         return 'getattr'
 
@@ -172,9 +187,9 @@ class GetAttrExpression(ExpressionBase):
         if obj.__class__ in nonpyomo_leaf_types:
             return obj
         # Note that because it is possible (likely) that the result
-        # could be an IndexedComponent_slice object, must test "is
-        # True", as the slice will return a list of values.
-        if obj.is_numeric_type() is True:
+        # could be an IndexedComponent_slice object, must make sure this
+        # is a PyomoObject before retrieving the attribute.
+        if isinstance(obj, PyomoObject) and obj.is_numeric_type():
             obj = value(obj)
         return obj
 
@@ -305,7 +320,13 @@ class TemplateSumExpression(ExpressionBase):
         self._local_args_ = args
 
     def create_node_with_local_data(self, args):
-        return self.__class__(args, self._iters)
+        if len(args) == 1:
+            return self.__class__(args, self._iters)
+        else:
+            # The TemplateSumExpression was expanded (maybe by a
+            # walker).  Convert it to a regular SumExpression
+            assert len(args) == self.nargs()
+            return sum(args)
 
     def __getstate__(self):
         state = super(TemplateSumExpression, self).__getstate__()
@@ -369,7 +390,7 @@ class IndexTemplate(NumericValue):
 
     Parameters
     ----------
-    _set: Set
+    set_: Set
         The Set from which this IndexTemplate can take values
 
     index: int or None
@@ -377,15 +398,17 @@ class IndexTemplate(NumericValue):
         Otherwise, it specifies the index into the Set specifying a
         "coordinate set" within the Set
 
-    id_: int
-        If not None, the identifier for the IndexTemplate (used, e.g.,
-        for constructing the string representation of the IndexTemplate)
+    context: ExpressionTemplateContext
+        The current templatization context (used for generating template
+        identifiers used by the string representation of the IndexTemplate)
+
     """
 
-    __slots__ = ('_set', '_value', '_index', '_id', '_lock')
+    __slots__ = ('_set', '_value', '_index', '_id', '_lock', 'context')
 
-    def __init__(self, set_, index=0, id_=None):
+    def __init__(self, set_, index=0, id_=NOTSET, context=None):
         self._set = set_
+        self.context = context
         if index is not None:
             setDim = set_.dimen
             if setDim is None:
@@ -400,9 +423,15 @@ class IndexTemplate(NumericValue):
                 raise ValueError("Cannot generate positional IndexTemplate "
                                  "for Set '%s': %s >= dimen (%s)"
                                  % (set_.name,index,setDim))
-        self._value = _NotSpecified
+        self._value = NOTSET
         self._index = index
-        self._id = id_
+        if id_ is NOTSET:
+            if context is None:
+                self._id = None
+            else:
+                self._id = context.next_id()
+        else:
+            self._id = id_
         self._lock = None
 
     def __getstate__(self):
@@ -440,12 +469,12 @@ class IndexTemplate(NumericValue):
         """
         Return the value of this object.
         """
-        if self._value is _NotSpecified:
+        if self._value is NOTSET:
             if exception:
                 raise TemplateExpressionError(
                     self, "Evaluating uninitialized IndexTemplate (%s)"
                     % (self,))
-            return None
+            return self
         else:
             return self._value
 
@@ -486,7 +515,7 @@ class IndexTemplate(NumericValue):
             _set_name += "(%s)" % (self._index,)
         return "{"+_set_name+"}"
 
-    def set_value(self, values=_NotSpecified, lock=None):
+    def set_value(self, values=NOTSET, lock=None):
         # It might be nice to check if the value is valid for the base
         # set, but things are tricky when the base set is not dimension
         # 1.  So, for the time being, we will just "trust" the user.
@@ -496,8 +525,8 @@ class IndexTemplate(NumericValue):
             raise RuntimeError(
                 "The TemplateIndex %s is currently locked by %s and "
                 "cannot be set through lock %s" % (self, self._lock, lock))
-        if values is _NotSpecified:
-            self._value = _NotSpecified
+        if values is NOTSET:
+            self._value = NOTSET
             return
         if type(values) is not tuple:
             values = (values,)
@@ -647,14 +676,14 @@ class _GetAttrIndexer(object):
 
     def __init__(self, expr):
         # store the original expr to make it easy to resolve the template later
-        self._expr = expr  
+        self._expr = expr
 
         self._args = []
         _hash = []
         current_e = expr
-        while type(current_e.arg(0)) in [GetItemExpression, GetAttrExpression]:
+        while type(current_e.arg(0)) in {GetItemExpression, GetAttrExpression}:
             for x in current_e.args[1:]:
-                val = value(current_e.arg(1))
+                val = value(x)
                 self._args.append(val)
                 _hash.append(val)
             current_e = current_e.arg(0)
@@ -711,7 +740,6 @@ class _GetAttrIndexer(object):
             return False
 
     def __str__(self):
-
         return str(self._expr)
 
 
@@ -795,10 +823,10 @@ class _set_iterator_template_generator(object):
         _set = self._set
         d = _set.dimen
         if d is None or type(d) is not int:
-            idx = (IndexTemplate(_set, None, context.next_id()),)
+            idx = (IndexTemplate(_set, None, context=context),)
         else:
             idx = tuple(
-                IndexTemplate(_set, i, context.next_id()) for i in range(d)
+                IndexTemplate(_set, i, context=context) for i in range(d)
             )
         context.cache.append(idx)
         if len(idx) == 1:
@@ -866,8 +894,10 @@ class ExpressionTemplateContext(object):
         return indices
 
 
-def templatize_rule(block, rule, indices, context):
+def templatize_rule(block, rule, indices, context=None):
     import pyomo.core.base.set
+    if context is None:
+        context = ExpressionTemplateContext()
     internal_error = None
     _old_iters = (
             pyomo.core.base.set._FiniteSetMixin.__iter__,
