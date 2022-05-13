@@ -18,6 +18,8 @@ from pyomo.core.expr.template_expr import (
     IndexTemplate, substitute_getattr_with_param, _GetAttrIndexer,
     ExpressionTemplateContext, templatize_constraint, resolve_template,
     )
+# TODO: remove this after debugging
+from pyomo.core.expr.expr_errors import TemplateExpressionError
 
 import logging
 
@@ -953,8 +955,18 @@ class Simulator:
                     if type(i) is IndexTemplate:
                         break
 
-                # This line will raise an error if no value was set
-                alginitcon.append(value(resolve_template(v.expr)))
+                try:
+                    temp_algvarvalue = value(resolve_template(v.expr),
+                                             exception=False)
+                except TemplateExpressionError:
+                    import pdb
+                    pdb.set_trace()
+
+                if temp_algvarvalue:
+                    alginitcon.append(temp_algvarvalue)
+                else:
+                    # No initial value was specified so set initial guess to 0
+                    alginitcon.append(0)
 
             zalltemp = [self._templatemap[i] for i in self._simalgvars]
             zall = casadi.vertcat(*zalltemp)
