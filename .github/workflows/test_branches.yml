@@ -623,7 +623,7 @@ jobs:
         echo ""
         echo "Install Pyomo..."
         echo ""
-        $PYTHON_EXE setup.py develop ${{matrix.setup_options}}
+        pip install -e . ${{matrix.setup_options}}
         echo ""
         echo "Set custom PYOMO_CONFIG_DIR"
         echo ""
@@ -744,7 +744,7 @@ jobs:
         echo ""
         echo "Install Pyomo..."
         echo ""
-        python setup.py develop
+        pip install -e .
         echo ""
         echo "Set custom PYOMO_CONFIG_DIR"
         echo ""
@@ -827,7 +827,7 @@ jobs:
         echo ""
         echo "Install Pyomo..."
         echo ""
-        $PYTHON_EXE setup.py develop ${{matrix.setup_options}}
+        pip install -e . ${{matrix.setup_options}}
         echo ""
         echo "Set custom PYOMO_CONFIG_DIR"
         echo ""
