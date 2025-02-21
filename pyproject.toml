@@ -1,0 +1,126 @@
+[build-system]
+requires = ["setuptools>=42", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pyomo"  # Changed to lowercase to comply with PEP 625
+description = "Pyomo: Python Optimization Modeling Objects"
+long_description = { file = "README.md" }
+long_description_content_type = "text/markdown"
+maintainer = "Pyomo Developer Team"
+maintainer_email = "pyomo-developers@googlegroups.com"
+license = { file = "LICENSE.md" }
+url = "http://pyomo.org"
+project_urls = { 
+    Documentation = "https://pyomo.readthedocs.io/",
+    Source = "https://github.com/Pyomo/pyomo",
+}
+keywords = ["optimization"]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: End Users/Desktop",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: BSD License",
+    "Natural Language :: English",
+    "Operating System :: MacOS",
+    "Operating System :: Microsoft :: Windows",
+    "Operating System :: Unix",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: Implementation :: CPython",
+    "Programming Language :: Python :: Implementation :: PyPy",
+    "Topic :: Scientific/Engineering :: Mathematics",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+]
+python_requires = ">=3.9"
+
+dependencies = [
+    "ply",
+]
+
+# Optional dependencies for testing and documentation
+
+# There are certain tests that also require pytest-qt, but because those
+# tests are so environment/machine specific, we are leaving these out of
+# the dependencies.
+[project.optional-dependencies]
+tests = [
+    "coverage",
+    "parameterized",
+    "pybind11",
+    "pytest",
+    "pytest-parallel",
+]
+
+docs = [
+    "Sphinx>4,!=8.2.0",
+    "sphinx-copybutton",
+    "sphinx_rtd_theme>0.5",
+    "sphinxcontrib-jsmath",
+    "sphinxcontrib-napoleon",
+    "sphinx-toolbox>=2.16.0",
+    "sphinx-jinja2-compat>=0.1.1",
+    "numpy",  # Needed by autodoc for pynumero
+    "scipy",  # Needed by autodoc for pynumero
+]
+
+optional = [
+    "dill",  # No direct use, but improves lambda pickle
+    "ipython",  # contrib.viewer
+    "linear-tree",  # contrib.piecewise
+    "matplotlib>=3.6.0,!=3.6.1",  # minimum version from community_detection
+    "networkx",  # network, incidence_analysis, community_detection
+    "numpy",
+    "openpyxl",  # dataportals
+    "pint",  # units
+    "plotly",  # incidence_analysis
+    "python-louvain",  # community_detection
+    "pyyaml",  # core
+    "qtconsole",  # contrib.viewer, also requires environment specific Qt version (PyQt5 or PySide6)
+    "scipy",
+    "sympy",  # differentiation
+    "xlrd",  # dataportals
+    "z3-solver",  # community_detection
+    "pywin32; platform_system==\"Windows\"",  # subprocess output is merged more reliably if 'PeekNamedPipe' is available from pywin32
+    "casadi; implementation_name!=\"pypy\"",  # dae
+    "numdifftools; implementation_name!=\"pypy\"",  # pynumero
+    "pandas; implementation_name!=\"pypy\"",
+    "seaborn; implementation_name!=\"pypy\"",  # parmest.graphics
+]
+
+[tool.setuptools]
+packages = ["find:"]
+package_data = { 
+    "pyomo.contrib.ampl_function_demo": ["src/*"],
+    "pyomo.contrib.appsi.cmodel": ["src/*"],
+    "pyomo.contrib.mcpp": ["*.cpp"],
+    "pyomo.contrib.pynumero": ['src/*', 'src/tests/*'],
+    "pyomo.contrib.viewer": ["*.ui"],
+    "pyomo.contrib.simplification.ginac": ["src/*.cpp", "src/*.hpp"],
+}
+
+[tool.pytest.ini_options]
+filterwarnings = ["ignore::RuntimeWarning"]
+junit_family = "xunit2"
+markers = [
+    "default: mark a test that should always run by default",
+    "expensive: marks tests as expensive",
+    "mpi: marks tests that require MPI",
+    "neos: marks tests that require NEOS server connections",
+    "importtest: marks tests that checks for warnings when importing modules",
+    "book: marks tests from the Pyomo book",
+    "performance: marks performance tests",
+    "long: marks long performance tests",
+    "short: marks short performance tests",
+    "devel: marks developer-created performance tests",
+    "nl: marks nl tests",
+    "lp: marks lp tests",
+    "gams: marks gams tests",
+    "bar: marks bar tests",
+    "builders: tests that should be run when testing custom (extension) builders",
+]
