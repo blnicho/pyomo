@@ -44,11 +44,12 @@ In this implementation, the region :math:`-0.1 < x < 0.1` is replaced by a Taylo
 
 These figures show the sinc(x) function, the Taylor series and where the Taylor series is used.
 
-.. image:: figs/sinc_f.png
+.. Debugging this file
+    .. image:: figs/sinc_f.png
 
-.. image:: figs/sinc_fx.png
+    .. image:: figs/sinc_fx.png
 
-.. image:: figs/sinc_fxx.png
+    .. image:: figs/sinc_fxx.png
 
 
 sgnsqr(x)
@@ -79,11 +80,12 @@ This function is :math:`C^4` smooth. The region :math:`-0.1 < x < 0.1` is replac
 
 These figures show the sgnsqr(x) function compared to the smooth approximation sgnsqr_c4(x).
 
-.. image:: figs/sgnsqr_f.png
+.. Debugging this file
+    .. image:: figs/sgnsqr_f.png
 
-.. image:: figs/sgnsqr_fx.png
+    .. image:: figs/sgnsqr_fx.png
 
-.. image:: figs/sgnsqr_fxx.png
+    .. image:: figs/sgnsqr_fxx.png
 
 
 sgnsqrt_c4(x)
@@ -102,11 +104,12 @@ This function is :math:`C^4` smooth.  The region :math:`-0.1 < x < 0.1` is repla
 
 These figures show the signed square root function compared to the smooth approximation sgnsqrt_c4(x).
 
-.. image:: figs/sgnsqrt_c4_err.png
+.. Debugging
+    .. image:: figs/sgnsqrt_c4_err.png
 
-.. image:: figs/sgnsqrt_c4_f.png
+    .. image:: figs/sgnsqrt_c4_f.png
 
-.. image:: figs/sgnsqrt_c4_fx.png
+    .. image:: figs/sgnsqrt_c4_fx.png
 
-.. image:: figs/sgnsqrt_c4_fxx.png
+    .. image:: figs/sgnsqrt_c4_fxx.png
 
