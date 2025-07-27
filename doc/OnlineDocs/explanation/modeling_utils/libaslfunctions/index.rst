@@ -33,23 +33,23 @@ sinc(x)
 
 This function is defined as:
 
-.. math::
+.. Debugging
+    .. math::
 
-    \text{sinc}(x) = \begin{cases}
-        \sin(x) / x & \text{if } x \neq 0 \\
-        1 & \text{if } x = 0
-    \end{cases}
+        \text{sinc}(x) = \begin{cases}
+            \sin(x) / x & \text{if } x \neq 0 \\
+            1 & \text{if } x = 0
+        \end{cases}
 
 In this implementation, the region :math:`-0.1 < x < 0.1` is replaced by a Taylor series with enough terms that the function should be at least :math:`C^2` smooth.  The difference between the function and the Tayor series is near the limits of machine precision, about :math:`1 \times 10^{-16}` for the function value,  :math:`1 \times 10^{-16}` for the first derivative, and :math:`1 \times 10^{-14}` for the second derivative.
 
 These figures show the sinc(x) function, the Taylor series and where the Taylor series is used.
 
-.. Debugging this file
-    .. image:: figs/sinc_f.png
+.. image:: figs/sinc_f.png
 
-    .. image:: figs/sinc_fx.png
+.. image:: figs/sinc_fx.png
 
-    .. image:: figs/sinc_fxx.png
+.. image:: figs/sinc_fxx.png
 
 
 sgnsqr(x)
@@ -69,23 +69,23 @@ sgnsqr_c4(x)
 
 This function is defined as:
 
-.. math::
+.. Debugging
+    .. math::
 
-    \text{sgnsqr_c4}(x) = \begin{cases}
-        \text{sgn}(x)x^2 & \text{if } |x| \ge 0.1 \\
-        \sum_{i=0}^{11} c_i x^i & \text{if } |x| < 0.1
-    \end{cases}
+        \text{sgnsqr_c4}(x) = \begin{cases}
+            \text{sgn}(x)x^2 & \text{if } |x| \ge 0.1 \\
+            \sum_{i=0}^{11} c_i x^i & \text{if } |x| < 0.1
+        \end{cases}
 
 This function is :math:`C^4` smooth. The region :math:`-0.1 < x < 0.1` is replaced by an 11th order polynomial that approximates :math:`\text{sgn}(x)x^2`. This function has well behaved derivatives at :math:`x=0`. If you need to use this function with very small numbers and high accuracy is important, you can scale the argument up (e.g. :math:`\text{sgnsqr_c4}(sx)/s^2`).
 
 These figures show the sgnsqr(x) function compared to the smooth approximation sgnsqr_c4(x).
 
-.. Debugging this file
-    .. image:: figs/sgnsqr_f.png
+.. image:: figs/sgnsqr_f.png
 
-    .. image:: figs/sgnsqr_fx.png
+.. image:: figs/sgnsqr_fx.png
 
-    .. image:: figs/sgnsqr_fxx.png
+.. image:: figs/sgnsqr_fxx.png
 
 
 sgnsqrt_c4(x)
@@ -93,23 +93,23 @@ sgnsqrt_c4(x)
 
 This function is a signed square root approximation defined as:
 
-.. math::
+.. Debugging
+    .. math::
 
-    \text{sgnsqrt_c4}(x) = \begin{cases}
-        \text{sgn}(x)|x|^{0.5} & \text{if } |x| \ge 0.1 \\
-        \sum_{i=0}^{11} c_i x^i & \text{if } |x| < 0.1
-    \end{cases}
+        \text{sgnsqrt_c4}(x) = \begin{cases}
+            \text{sgn}(x)|x|^{0.5} & \text{if } |x| \ge 0.1 \\
+            \sum_{i=0}^{11} c_i x^i & \text{if } |x| < 0.1
+        \end{cases}
 
 This function is :math:`C^4` smooth.  The region :math:`-0.1 < x < 0.1` is replaced by an 11th order polynomial that approximates :math:`\text{sgn}(x)|x|^{0.5}`.  This function has well behaved derivatives at :math:`x=0`.  If you need to use this function with very small numbers and high accuracy is important, you can scale the argument up (e.g. :math:`\text{sgnsqrt_c4}(sx)/s^{0.5}`).
 
 These figures show the signed square root function compared to the smooth approximation sgnsqrt_c4(x).
 
-.. Debugging
-    .. image:: figs/sgnsqrt_c4_err.png
+.. image:: figs/sgnsqrt_c4_err.png
 
-    .. image:: figs/sgnsqrt_c4_f.png
+.. image:: figs/sgnsqrt_c4_f.png
 
-    .. image:: figs/sgnsqrt_c4_fx.png
+.. image:: figs/sgnsqrt_c4_fx.png
 
-    .. image:: figs/sgnsqrt_c4_fxx.png
+.. image:: figs/sgnsqrt_c4_fxx.png
 
