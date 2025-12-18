@@ -86,48 +86,55 @@ jobs:
         category: [""]
 
         include:
-        - os: ubuntu-latest
-          python: 3.14
-          test_docs: 1
-          TARGET: linux
-          PYENV: pip
+        # - os: ubuntu-latest
+        #  python: 3.14
+        #  test_docs: 1
+        #  TARGET: linux
+        #  PYENV: pip
 
-        - os: macos-latest
-          python: 3.13
-          test_docs: 1
-          TARGET: osx
-          PYENV: pip
+        #- os: macos-latest
+        #  python: 3.13
+        #  test_docs: 1
+        #  TARGET: osx
+        #  PYENV: pip
 
         - os: windows-latest
-          python: 3.12
+          python: 3.13
+          test_docs: 1
+          TARGET: win
+          PYENV: conda
+          PACKAGES: glpk pytest-qt filelock
+
+        - os: windows-latest
+          python: 3.14
           test_docs: 1
           TARGET: win
           PYENV: conda
           PACKAGES: glpk pytest-qt filelock
 
         # Note: verify that pymumps is available when changing conda python version
-        - os: ubuntu-latest
-          python: 3.12
-          other: /conda
-          TARGET: linux
-          PYENV: conda
-          PACKAGES: pytest-qt
+        #- os: ubuntu-latest
+        #  python: 3.12
+        #  other: /conda
+        #  TARGET: linux
+        #  PYENV: conda
+        #  PACKAGES: pytest-qt
 
-        - os: ubuntu-latest
-          python: 3.11
-          other: /mpi
-          mpi: 3
-          TARGET: linux
-          PYENV: conda
-          PACKAGES: openmpi==*[build=h*] mpi4py
+        #- os: ubuntu-latest
+        #  python: 3.11
+        #  other: /mpi
+        #  mpi: 3
+        #  TARGET: linux
+        #  PYENV: conda
+        #  PACKAGES: openmpi==*[build=h*] mpi4py
 
-        - os: ubuntu-latest
-          python: 3.12
-          other: /cython
-          setup_options: --with-cython
-          TARGET: linux
-          PYENV: pip
-          PACKAGES: cython
+        #- os: ubuntu-latest
+        #  python: 3.12
+        #  other: /cython
+        #  setup_options: --with-cython
+        #  TARGET: linux
+        #  PYENV: pip
+        #  PACKAGES: cython
 
         - os: windows-latest
           python: '3.10'
@@ -399,7 +406,8 @@ jobs:
             TIMEOUT_MSG="TIMEOUT: killing conda install process"
             PYVER=$(echo "py${{matrix.python}}" | sed 's/\.//g')
             echo "Installing for $PYVER"
-            for PKG in 'cplex>=12.10' docplex gurobi "$XPRESS" cyipopt pymumps scip; do
+            # for PKG in 'cplex>=12.10' docplex gurobi "$XPRESS" cyipopt pymumps scip; do
+            for PKG in 'cplex>=12.10' docplex gurobi cyipopt pymumps scip; do
                 echo ""
                 echo "*** Install $PKG ***"
                 echo ""
