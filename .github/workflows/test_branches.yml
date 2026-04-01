@@ -90,7 +90,7 @@ jobs:
 
         include:
         - os: ubuntu-latest
-          python: 'pypy-3.11'
+          python: 'pypy-3.11-v7.3.20'
           TARGET: linux
           PYENV: pip
 
