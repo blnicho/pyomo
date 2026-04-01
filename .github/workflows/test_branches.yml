@@ -743,12 +743,14 @@ jobs:
       if: ${{ matrix.mpi == 0 && matrix.category != 'notests' }}
       run: |
         export PATH=$PYOMO_PATH
-        $PYTHON_EXE -c "import site; print('site imported')"
-        $PYTHON_EXE -c "import importlib.util as u; print('sitecustomize', u.find_spec('sitecustomize')); print('usercustomize', u.find_spec('usercustomize'))"
-        $PYTHON_EXE -c "import site, sys; import glob; import os; print('paths:', site.getsitepackages()); \
-            [print(p) for sp in site.getsitepackages() for p in glob.glob(os.path.join(sp,'*.pth'))]"
-        rm -f /opt/hostedtoolcache/PyPy/3.11.15/x64/lib/pypy3.11/site-packages/a1_coverage.pth
-        $PYTHON_EXE -m pytest -s -vv \
+        SITE_PACKAGES=$($PYTHON_EXE -c "import sysconfig; print(sysconfig.get_path('purelib'))")
+        echo "SITE_PACKAGES=$SITE_PACKAGES"
+        echo "=== a1_coverage.pth ==="
+        sed -n '1,200p' "$SITE_PACKAGES/a1_coverage.pth"
+        echo "=== run_coverage_at_startup.pth ==="
+        sed -n '1,200p' "$SITE_PACKAGES/run_coverage_at_startup.pth"
+        $PYTHON_EXE -c "import coverage; print('coverage', coverage.__version__, coverage.__file__)"
+        COVERAGE_PROCESS_START= COVERAGE_RCFILE= $PYTHON_EXE -m pytest -s -vv \
             -W ignore::Warning ${{matrix.category}} \
             `pwd`/examples/pyomobook/test_book_examples.py --junitxml="TEST-pyomo.xml"
 
