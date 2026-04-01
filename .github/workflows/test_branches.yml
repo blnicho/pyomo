@@ -694,20 +694,30 @@ jobs:
     - name: Set up coverage tracking
       run: |
         if test "${{matrix.TARGET}}" == win; then
-            COVERAGE_BASE=${GITHUB_WORKSPACE}\\.cover
+          COVERAGE_BASE=${GITHUB_WORKSPACE}\\.cover
         else
             COVERAGE_BASE=${GITHUB_WORKSPACE}/.cover
         fi
         COVERAGE_RC=${COVERAGE_BASE}_rc
+        # These env vars persist across later steps
         echo "COVERAGE_RCFILE=$COVERAGE_RC" >> $GITHUB_ENV
         echo "COVERAGE_PROCESS_START=$COVERAGE_RC" >> $GITHUB_ENV
         cp ${GITHUB_WORKSPACE}/.coveragerc ${COVERAGE_RC}
         echo "data_file=${COVERAGE_BASE}age" >> ${COVERAGE_RC}
-        SITE_PACKAGES=$($PYTHON_EXE -c \
-            "import sysconfig; print(sysconfig.get_path('purelib'))")
+        SITE_PACKAGES=$($PYTHON_EXE -c "import sysconfig; print(sysconfig.get_path('purelib'))")
         echo "Python site-packages: $SITE_PACKAGES"
-        echo 'import coverage; coverage.process_startup()' \
-            > ${SITE_PACKAGES}/run_coverage_at_startup.pth
+        # Only start coverage automatically when COVERAGE_PROCESS_START (or CONFIG) is set.
+        # This prevents unexpected stdout noise in processes where you purposely unset coverage.
+        cat > ${SITE_PACKAGES}/run_coverage_at_startup.pth <<'PTH'
+        import os
+        if os.getenv("COVERAGE_PROCESS_START") or os.getenv("COVERAGE_PROCESS_CONFIG"):
+            try:
+                import coverage
+            except Exception:
+                pass
+            else:
+                coverage.process_startup(slug="pth")
+        PTH
 
     - name: Download and install extensions
       if: ${{ ! matrix.slim && matrix.category != 'notests' }}
@@ -743,10 +753,6 @@ jobs:
       if: ${{ matrix.mpi == 0 && matrix.category != 'notests' }}
       run: |
         export PATH=$PYOMO_PATH
-        unset COVERAGE_PROCESS_START
-        unset COVERAGE_PROCESS_CONFIG
-        unset COVERAGE_RCFILE
-        unset COVERAGE_FILE
         $PYTHON_EXE -m pytest -s -vv \
             -W ignore::Warning ${{matrix.category}} \
             `pwd`/examples/pyomobook/test_book_examples.py --junitxml="TEST-pyomo.xml"
