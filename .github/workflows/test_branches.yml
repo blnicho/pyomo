@@ -743,8 +743,11 @@ jobs:
       if: ${{ matrix.mpi == 0 && matrix.category != 'notests' }}
       run: |
         export PATH=$PYOMO_PATH
-        $PYTHON_EXE -c "import os; print({k:v for k,v in os.environ.items() if any(s in k for s in ['PYPY','PYTEST','PYTHON','TRACEMALLOC','MALLOC'])})"
-        $PYTHON_EXE -S -m pytest -s -vv \
+        $PYTHON_EXE -c "import site; print('site imported')"
+        $PYTHON_EXE -c "import importlib.util as u; print('sitecustomize', u.find_spec('sitecustomize')); print('usercustomize', u.find_spec('usercustomize'))"
+        $PYTHON_EXE -c "import site, sys; import glob; import os; print('paths:', site.getsitepackages()); \
+            [print(p) for sp in site.getsitepackages() for p in glob.glob(os.path.join(sp,'*.pth'))]"
+        $PYTHON_EXE -m pytest -s -vv \
             -W ignore::Warning ${{matrix.category}} \
             `pwd`/examples/pyomobook/test_book_examples.py --junitxml="TEST-pyomo.xml"
 
