@@ -743,8 +743,8 @@ jobs:
       if: ${{ matrix.mpi == 0 && matrix.category != 'notests' }}
       run: |
         export PATH=$PYOMO_PATH
-        $PYTHON_EXE -c "import os; print({k:v for k,v in os.environ.items() if 'TRACEMALLOC' in k or 'MALLOC' in k or 'PYTHON'==k[:6]})"
-        $PYTHON_EXE -m pytest -s -vv \
+        $PYTHON_EXE -c "import os; print({k:v for k,v in os.environ.items() if any(s in k for s in ['PYPY','PYTEST','PYTHON','TRACEMALLOC','MALLOC'])})"
+        $PYTHON_EXE -S -m pytest -s -vv \
             -W ignore::Warning ${{matrix.category}} \
             `pwd`/examples/pyomobook/test_book_examples.py --junitxml="TEST-pyomo.xml"
 
