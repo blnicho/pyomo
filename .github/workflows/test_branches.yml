@@ -747,6 +747,7 @@ jobs:
         $PYTHON_EXE -c "import importlib.util as u; print('sitecustomize', u.find_spec('sitecustomize')); print('usercustomize', u.find_spec('usercustomize'))"
         $PYTHON_EXE -c "import site, sys; import glob; import os; print('paths:', site.getsitepackages()); \
             [print(p) for sp in site.getsitepackages() for p in glob.glob(os.path.join(sp,'*.pth'))]"
+        rm -f /opt/hostedtoolcache/PyPy/3.11.15/x64/lib/pypy3.11/site-packages/a1_coverage.pth
         $PYTHON_EXE -m pytest -s -vv \
             -W ignore::Warning ${{matrix.category}} \
             `pwd`/examples/pyomobook/test_book_examples.py --junitxml="TEST-pyomo.xml"
